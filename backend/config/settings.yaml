@@ -1,0 +1,134 @@
+# JARVIS Configuration
+# Phase 1: Core Agent + Screen Control
+
+system:
+  name: "JARVIS"
+  version: "0.1.0"
+  phase: 1
+  debug: false
+
+hardware:
+  gpu: "auto"  # auto, cuda, cpu
+  max_vram_gb: 4
+  max_ram_gb: 16
+  threads: 4
+
+vision:
+  models:
+    - name: "smolvlm"
+      id: "HuggingFaceTB/SmolVLM-Instruct"
+      role: "fast_check"
+      enabled: true
+    - name: "florence2"
+      id: "microsoft/Florence-2-base-ft"
+      role: "ui_detection"
+      enabled: true
+    - name: "qwen"
+      id: "Qwen/Qwen2.5-VL-3B-Instruct"
+      role: "complex_reasoning"
+      enabled: true
+  
+  routing:
+    strategy: "complexity_based"
+    fallback_order: ["qwen", "florence2", "smolvlm"]
+  
+  screen_capture:
+    backend: "auto"  # auto, dxcam, mss
+    frequency: "on_demand"
+    save_screenshots: true
+    screenshot_dir: "data/screenshots"
+
+voice:
+  stt:
+    primary: "nvidia_canary"
+    fallback: "faster_whisper"
+    model_size: "small"
+    language: "en"
+    vad:
+      enabled: true
+      model: "silero_vad"
+      threshold: 0.5
+  
+  tts:
+    engine: "f5_tts"
+    voice_sample: "data/voice_samples/jarvis_voice.wav"
+    output_dir: "data/voice_output"
+    sample_rate: 24000
+
+screen_control:
+  methods:
+    - "pywinauto"
+    - "uiautomation"
+    - "pydirectinput"
+  
+  safety:
+    click_delay: 0.1
+    type_delay: 0.05
+    failsafe: true
+
+agent:
+  framework: "crewai"
+  agents:
+    - name: "vision_analyst"
+      role: "Analyze screenshots and understand UI elements"
+    - name: "action_executor"
+      role: "Plan and execute precise actions"
+    - name: "quality_verifier"
+      role: "Verify outcomes and catch errors"
+    - name: "memory_manager"
+      role: "Store and retrieve experiences"
+  
+  trust:
+    initial_level: 1
+    max_level: 4
+    auto_promote: true
+    promotion_threshold: 0.9
+
+memory:
+  type: "chromadb"
+  persist_directory: "data/memory"
+  collections:
+    - "episodic_memory"
+    - "semantic_memory"
+  
+  context:
+    type: "adaptive"
+    max_tokens: 16384
+    min_tokens: 4096
+
+security:
+  blocked_commands:
+    - "rm -rf /"
+    - "del /f /s /q"
+    - "format"
+    - "shutdown"
+    - "taskkill /f"
+    - "reg delete"
+    - "diskpart"
+  
+  require_confirmation:
+    level_1: ["write", "execute", "click"]
+    level_2: ["delete", "modify", "install"]
+    level_3: ["system_change"]
+
+logging:
+  level: "INFO"
+  file: "data/logs/jarvis_{time:YYYY-MM-DD}.log"
+  rotation: "1 day"
+  retention: "30 days"
+
+api:
+  fastapi:
+    host: "127.0.0.1"
+    port: 8000
+  
+  express:
+    host: "127.0.0.1"
+    port: 3001
+
+overlay:
+  enabled: true
+  backend: "customtkinter"
+  geometry: "320x180"
+  always_on_top: true
+  opacity: 0.9
