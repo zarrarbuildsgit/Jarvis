@@ -10,6 +10,9 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from backend.agent.debate import DebateConfig, MultiAgentDebate
+from backend.agent.executor import ActionExecutor
+from backend.agent.observation import ObservationBuilder
+from backend.agent.runtime import ActionRuntime
 from backend.plugins.manager import PluginManager
 
 
@@ -31,6 +34,17 @@ class JARVIS_Crew:
         self.plugin_manager = PluginManager(plugin_dirs or ["plugins", "data/plugins"])
         self.plugin_manager.discover()
         self.debate = MultiAgentDebate(DebateConfig(enabled=enable_debate))
+        self.runtime = ActionRuntime(
+            executor=ActionExecutor(
+                trust_level_getter=self.trust.get_current_level,
+                screen_control=self.screen_control,
+                screen_capture=self.screen_capture,
+                vision_router=self.vision_router,
+                plugin_manager=self.plugin_manager,
+                status_provider=self.get_status,
+            ),
+            observation_builder=ObservationBuilder(self.screen_capture, self.screen_control, self.vision_router),
+        )
         self.crew = None
         self._build_crew()
         logger.info("JARVIS agents assembled: core=%s plugins=%s debate=%s", len(self.crew.agents) if self.crew else 0, len(self.plugin_manager.plugins), enable_debate)
@@ -107,6 +121,18 @@ class JARVIS_Crew:
                 if verdict.risk_level >= 3 and trust_level < 3:
                     return f"⚠️ Debate flagged high risk: {verdict.summary}\nRecommended plan: {verdict.recommended_plan}"
                 self.memory.add_semantic(f"Debate for '{command}': {verdict.summary}", category="debate")
+
+            runtime_result = await self.runtime.run(command, context={"trust_level": trust_level})
+            if runtime_result.handled:
+                trust_manager.record_action(command, runtime_result.message, runtime_result.success)
+                trust_manager.evaluate_trust()
+                self.memory.add_episodic(
+                    command,
+                    runtime_result.message,
+                    "action_runtime",
+                    {"plan_id": runtime_result.plan.id if runtime_result.plan else "none"},
+                )
+                return runtime_result.message
 
             result = await self._run_crew_or_fallback(command)
             success = not str(result).startswith("❌")
@@ -186,4 +212,5 @@ class JARVIS_Crew:
             "trust_level": self.trust.get_current_level(),
             "plugins": self.plugin_manager.list_plugins(),
             "debate_enabled": self.debate.config.enabled,
+            "action_runtime": "enabled",
         }

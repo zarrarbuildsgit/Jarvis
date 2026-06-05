@@ -1,0 +1,87 @@
+"""JARVIS deterministic action runtime.
+
+The runtime is the single bridge between user commands and executable actions.
+Future systems (voice, dashboard, skills, scheduler) should call this instead of
+calling low-level tools directly.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from loguru import logger
+
+from backend.agent.action_schema import ActionPlan, RuntimeResult
+from backend.agent.executor import ActionExecutor
+from backend.agent.observation import ObservationBuilder
+from backend.agent.planner import DeterministicPlanner
+
+
+class ActionRuntime:
+    """Plan and execute deterministic actions."""
+
+    def __init__(
+        self,
+        *,
+        planner: Optional[DeterministicPlanner] = None,
+        executor: Optional[ActionExecutor] = None,
+        observation_builder: Optional[ObservationBuilder] = None,
+        min_confidence: float = 0.75,
+    ):
+        self.planner = planner or DeterministicPlanner()
+        self.executor = executor
+        self.observation_builder = observation_builder
+        self.min_confidence = min_confidence
+
+    def plan(self, command: str) -> ActionPlan:
+        return self.planner.plan(command)
+
+    async def run(self, command: str, context: Optional[Dict[str, Any]] = None) -> RuntimeResult:
+        context = context or {}
+        plan = self.plan(command)
+        if plan.is_empty or plan.confidence < self.min_confidence:
+            return RuntimeResult(
+                command=command,
+                handled=False,
+                success=False,
+                message="No deterministic action plan matched this command.",
+                plan=plan,
+                metadata={"confidence": plan.confidence, **context},
+            )
+
+        if self.executor is None:
+            return RuntimeResult(
+                command=command,
+                handled=True,
+                success=False,
+                message="Action runtime has no executor configured.",
+                plan=plan,
+                metadata=context,
+            )
+
+        logger.info("Runtime executing plan %s with %s action(s): %s", plan.id, len(plan.actions), plan.summary)
+        results = await self.executor.execute_plan(plan.actions)
+        success = bool(results) and all(r.success for r in results)
+        message = self._summarize(plan, results, success)
+        return RuntimeResult(
+            command=command,
+            handled=True,
+            success=success,
+            message=message,
+            plan=plan,
+            results=results,
+            metadata=context,
+        )
+
+    def _summarize(self, plan: ActionPlan, results, success: bool) -> str:
+        if not results:
+            return f"No actions executed for: {plan.summary}"
+        if len(results) == 1:
+            result = results[0]
+            prefix = "✅" if result.success else "❌"
+            return f"{prefix} {result.message or result.error or plan.summary}"
+        completed = sum(1 for r in results if r.success)
+        if success:
+            return f"✅ Completed {completed}/{len(results)} actions: {plan.summary}"
+        failed = next((r for r in results if not r.success), results[-1])
+        return f"❌ Completed {completed}/{len(results)} actions before failure: {failed.message or failed.error}"
