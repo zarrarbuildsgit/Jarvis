@@ -52,6 +52,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 tasks: Dict[str, dict] = {}
+_agent_status: dict = {}
 
 @app.get("/api/health")
 async def health():
@@ -79,6 +80,26 @@ async def send_command(req: CommandRequest):
 async def get_tasks():
     return {"tasks": list(tasks.values())}
 
+@app.get("/api/status")
+async def status():
+    return {"api": "ok", "agent": "online" if manager.agent_ws else "offline", "status": _agent_status}
+
+@app.post("/api/agent/status")
+async def update_agent_status(status_update: dict):
+    _agent_status.update(status_update)
+    await manager.broadcast({"type": "status_update", "status": _agent_status})
+    return {"ok": True, "status": _agent_status}
+
+@app.get("/api/plugins")
+async def plugins():
+    try:
+        from backend.plugins.manager import PluginManager
+        pm = PluginManager(["plugins", "data/plugins"])
+        pm.discover()
+        return {"plugins": pm.describe()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.delete("/api/tasks/{task_id}")
 async def cancel_task(task_id: str):
     if task_id not in tasks:
@@ -95,7 +116,10 @@ async def agent_ws(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
-            if data.get("type") == "agent_thought":
+            if data.get("type") == "agent_status":
+                _agent_status.update(data.get("status", {}))
+                await manager.broadcast({"type": "status_update", "status": _agent_status})
+            elif data.get("type") in {"agent_thought", "agent_result", "task_update"}:
                 await manager.broadcast(data)
     except WebSocketDisconnect:
         manager.disconnect(ws)

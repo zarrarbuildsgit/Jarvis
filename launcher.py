@@ -30,7 +30,7 @@ class JARVIS_Launcher:
                 "port": 8000
             },
             "agent": {
-                "cmd": ["python", "main.py", "--phase", "2", "--headless"],
+                "cmd": ["python", "main.py", "--phase", "5", "--headless"],
                 "name": "JARVIS Agent",
                 "port": None
             },
@@ -40,7 +40,7 @@ class JARVIS_Launcher:
                 "port": 3001
             },
             "overlay": {
-                "cmd": ["python", "-m", "overlay.status"],
+                "cmd": ["python", "-m", "overlay.tray"],
                 "name": "Desktop Overlay",
                 "port": None
             }

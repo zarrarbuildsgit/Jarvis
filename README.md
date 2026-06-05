@@ -13,7 +13,7 @@ cd ui-server && npm install && cd ..
 uv run python scripts/download_models.py
 
 # 3. Start JARVIS
-uv run python main.py --phase 1
+uv run python main.py --phase 5
 ```
 
 ## 🏗️ Architecture
@@ -181,9 +181,12 @@ uv run python scripts/download_models.py
 ## 📈 Roadmap
 
 - ✅ **Phase 1**: Core agent + screen control + verification
-- 🔜 **Phase 2**: Voice engine (STT + TTS + wake word)
-- 🔜 **Phase 3**: UI dashboard + overlay completion
-- 🔜 **Phase 4**: Browser automation + API integrations
+- ✅ **Phase 2**: Voice engine (STT + TTS + wake word)
+- ✅ **Phase 3**: UI dashboard + overlay foundation
+- ✅ **Phase 4**: Plugin-ready advanced integrations
+- ✅ **Phase 5**: Windows Service + System Tray + Plugin System + GTX 1050 Ti optimizations + Continuous Voice Conversations + Multi-Agent Debate
+
+See [PHASE5.md](PHASE5.md) for Phase 5 usage and implementation details.
 
 ---
 

@@ -38,10 +38,10 @@ if not exist "data\voice_output" mkdir "data\voice_output"
 if not exist "data\screenshots" mkdir "data\screenshots"
 
 echo.
-echo Starting JARVIS Phase 1...
+echo Starting JARVIS Phase 5...
 echo.
 
 REM Start the agent
-uv run python main.py --phase 1
+uv run python main.py --phase 5
 
 pause

@@ -20,15 +20,19 @@ class VoiceIntegration:
     Manages the full voice pipeline:
     Wake Word -> STT -> Agent -> TTS -> Speaker
     
-    Designed for Phase 2: Voice Engine
+    Designed for Phase 5: continuous voice conversations
     """
     
-    def __init__(self, agent_crew, trust_manager):
+    def __init__(self, agent_crew, trust_manager, continuous: bool = False, idle_timeout_seconds: int = 45):
         self.stt = STTEngine()
         self.tts = F5TTSEngine()
         self.wake_word = WakeWordDetector()
         self.agent = agent_crew
         self.trust = trust_manager
+        self.continuous = continuous
+        self.idle_timeout_seconds = idle_timeout_seconds
+        self._recording = False
+        self._last_interaction = 0.0
         
         # Audio config
         self.sample_rate = 16000
@@ -93,7 +97,6 @@ class VoiceIntegration:
         # Main loop
         try:
             audio_buffer = []
-            recording = False
             silence_count = 0
             
             while self._listening:
@@ -101,7 +104,7 @@ class VoiceIntegration:
                     chunk = self._audio_stream.read(self.chunk_size, exception_on_overflow=False)
                     audio_data = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
                     
-                    if recording:
+                    if self._recording:
                         audio_buffer.append(audio_data)
                         
                         # Check for silence
@@ -112,13 +115,18 @@ class VoiceIntegration:
                         
                         # If 1 second of silence, stop recording
                         if silence_count > 20:  # 20 * 50ms = 1s
-                            recording = False
+                            self._recording = False
                             await self._process_voice_command(audio_buffer)
                             audio_buffer = []
                             silence_count = 0
                     else:
-                        # Not recording - buffer for wake word
-                        pass
+                        # In continuous mode, keep listening for follow-ups for a short window
+                        if self.continuous and self._last_interaction and (time.time() - self._last_interaction) < self.idle_timeout_seconds:
+                            if self.stt.is_voice_active(audio_data, threshold=0.35):
+                                self._recording = True
+                                audio_buffer = [audio_data]
+                                silence_count = 0
+                        # Otherwise wake_word detector is responsible for setting _recording.
                         
                 except Exception as e:
                     logger.warning(f"Audio read error: {e}")
@@ -132,6 +140,8 @@ class VoiceIntegration:
     def _on_wake_word(self):
         """Called when wake word is detected"""
         self._listening = True
+        self._recording = True
+        self._last_interaction = time.time()
         logger.info("🔔 Wake word detected - listening...")
         
         # Visual feedback
@@ -161,6 +171,7 @@ class VoiceIntegration:
             
             result = await self.agent.process_command(text, self.trust)
             logger.info(f"🤖 Agent response: {result}")
+            self._last_interaction = time.time()
             
             # 3. Speak response
             if self.tts.model:
@@ -214,6 +225,7 @@ class VoiceIntegration:
     def stop_voice_loop(self):
         """Stop voice listening"""
         self._listening = False
+        self._recording = False
         self.wake_word.stop()
         
         if self._audio_stream:
@@ -229,6 +241,8 @@ class VoiceIntegration:
         return {
             "listening": self._listening,
             "processing": self._processing,
+            "recording": self._recording,
+            "continuous": self.continuous,
             "stt": self.stt.get_model_info(),
             "tts": self.tts.get_info(),
             "wake_word": "active" if self.wake_word._running else "inactive"

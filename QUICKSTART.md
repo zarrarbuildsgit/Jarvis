@@ -44,7 +44,7 @@ uv run python scripts/download_models.py
 uv run python backend/api.py
 
 # Terminal 2: JARVIS agent
-uv run python main.py --phase 1
+uv run python main.py --phase 5
 ```
 
 ## Usage

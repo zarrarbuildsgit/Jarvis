@@ -1,7 +1,7 @@
 """
 J.A.R.V.I.S. - Main Entry Point
 Just A Rather Very Intelligent System
-Phase 1: Core Agent + Screen Control
+Phase 5: Service + Tray + Plugins + Voice + Debate
 """
 
 import asyncio
@@ -60,7 +60,7 @@ async def initialize_system():
     trust = TrustManager()
     screen = ScreenCapture()
     vision = VisionRouter()
-    crew = JARVIS_Crew()
+    crew = JARVIS_Crew(enable_debate=True)
     
     console.print("[green]✓[/green] Memory system initialized")
     console.print("[green]✓[/green] Trust manager initialized")
@@ -162,8 +162,44 @@ async def interactive_mode(system):
             logger.error(f"Error processing command: {e}")
             console.print(f"[red]❌ Error: {e}[/red]")
 
+async def headless_agent_loop(system):
+    """Connect to FastAPI as the background agent and process queued dashboard tasks."""
+    import json
+    import websockets
+
+    crew = system["crew"]
+    trust = system["trust"]
+    uri = "ws://127.0.0.1:8000/ws/agent"
+    while True:
+        try:
+            logger.info(f"Connecting headless agent to {uri}")
+            async with websockets.connect(uri) as ws:
+                await ws.send(json.dumps({"type": "agent_status", "status": crew.get_status()}))
+                async for raw in ws:
+                    data = json.loads(raw)
+                    if data.get("type") == "new_task":
+                        task = data["task"]
+                        await ws.send(json.dumps({"type": "agent_thought", "text": f"Processing {task['id']}: {task['command']}"}))
+                        result = await crew.process_command(task["command"], trust)
+                        await ws.send(json.dumps({
+                            "type": "task_update",
+                            "taskId": task["id"],
+                            "status": "completed" if not str(result).startswith("❌") else "failed",
+                            "progress": 100,
+                            "result": str(result),
+                        }))
+                        await ws.send(json.dumps({"type": "agent_result", "text": str(result)}))
+                    elif data.get("type") == "user_command":
+                        command = data.get("command", "")
+                        await ws.send(json.dumps({"type": "agent_thought", "text": f"Processing: {command}"}))
+                        result = await crew.process_command(command, trust)
+                        await ws.send(json.dumps({"type": "agent_result", "text": str(result)}))
+        except Exception as exc:
+            logger.warning(f"Headless agent websocket unavailable: {exc}; retrying in 5s")
+            await asyncio.sleep(5)
+
 @click.command()
-@click.option("--phase", default=1, help="Phase to run (1-4)")
+@click.option("--phase", default=1, help="Phase to run (1-5)")
 @click.option("--headless", is_flag=True, help="Run without UI")
 def main(phase, headless):
     """JARVIS main entry point"""
@@ -172,17 +208,30 @@ def main(phase, headless):
         border_style="magenta"
     ))
     
-    if phase == 1:
+    if phase in (1, 5):
         system = asyncio.run(initialize_system())
+        if phase == 5:
+            console.print("[green]Phase 5 enabled: plugins + debate + GTX 1050 Ti profile + service/tray support[/green]")
+            if headless:
+                console.print("[yellow]Headless Phase 5 initialized. Connecting to API websocket.[/yellow]")
+                try:
+                    asyncio.run(headless_agent_loop(system))
+                except KeyboardInterrupt:
+                    console.print("[red]👋 JARVIS shutting down...[/red]")
+                return
         asyncio.run(interactive_mode(system))
     elif phase == 2:
-        console.print("[yellow]Phase 2 (Voice) — Coming Soon[/yellow]")
+        system = asyncio.run(initialize_system())
+        from backend.voice.integration import VoiceIntegration
+        voice = VoiceIntegration(system["crew"], system["trust"], continuous=True)
+        voice.initialize()
+        asyncio.run(voice.start_voice_loop())
     elif phase == 3:
-        console.print("[yellow]Phase 3 (UI) — Coming Soon[/yellow]")
+        console.print("[yellow]Phase 3 dashboard/overlay should be launched via launcher.py or start_jarvis.bat[/yellow]")
     elif phase == 4:
-        console.print("[yellow]Phase 4 (Advanced) — Coming Soon[/yellow]")
+        console.print("[yellow]Phase 4 advanced integrations are available through plugins.[/yellow]")
     else:
-        console.print("[red]Invalid phase. Use 1-4.[/red]")
+        console.print("[red]Invalid phase. Use 1-5.[/red]")
 
 if __name__ == "__main__":
     main()
