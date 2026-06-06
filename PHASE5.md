@@ -103,6 +103,7 @@ Smoke checks:
 ```powershell
 uv run python scripts/smoke_sprint2.py
 uv run python scripts/smoke_sprint3.py
+uv run python scripts/smoke_sprint4.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -125,4 +126,19 @@ get clipboard
 set clipboard to hello
 paste clipboard
 ```
+
+## Sprint 4 First-Party Plugins
+
+The plugin pack now includes:
+
+- `windows_apps` — open apps, list windows, focus windows
+- `file_manager` — list/read/write files through policy checks
+- `browser` — open URLs and web searches
+- `system_monitor` — CPU/RAM/GPU/process status
+- `audio_control` — media-key volume/mute controls where supported
+- `terminal` — terminal command execution through policy checks
+- `time` — basic local time/date plugin
+
+Plugin metadata now includes `permissions` and `examples`, surfaced by `/api/plugins`.
+
 

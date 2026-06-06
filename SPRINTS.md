@@ -117,6 +117,8 @@ Make Windows control reliable without depending on screen coordinates first.
 
 # Sprint 4 — First-Party Plugins Pack
 
+**Status: Implemented in local Sprint 4 commit.**
+
 ## Goal
 Add practical built-in skills using the plugin system.
 
@@ -137,9 +139,9 @@ Add practical built-in skills using the plugin system.
 - `plugins/terminal.py`
 
 ## Acceptance Criteria
-- Plugins declare name, description, trust, permissions, examples.
-- Plugins use policy checks before risky actions.
-- `/api/plugins` shows useful metadata.
+- Plugins declare name, description, trust, permissions, examples. ✅
+- Plugins use policy checks before risky actions. ✅
+- `/api/plugins` shows useful metadata. ✅
 
 ---
 
@@ -393,4 +395,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1, 2, and 3 are implemented. Next recommended sprint: **Sprint 4 — First-Party Plugins Pack**. Do not begin dashboard, skills, or advanced voice work until core plugins exist, because dashboard/voice/skills should exercise practical app, file, browser, terminal, and system-monitor capabilities.
+Sprints 1, 2, 3, and 4 are implemented. Next recommended sprint: **Sprint 5 — Config Profiles**. Do not begin dashboard, skills, or advanced voice work until profile-based config exists, because GTX 1050 Ti, safe mode, and high-end GPU behavior should be centralized before more systems depend on settings.

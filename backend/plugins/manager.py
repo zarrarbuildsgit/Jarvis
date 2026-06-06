@@ -5,7 +5,11 @@ import importlib.util
 import inspect
 from pathlib import Path
 from typing import Any, Dict, Iterable
-from loguru import logger
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover - minimal env fallback
+    import logging
+    logger = logging.getLogger(__name__)
 
 from backend.plugins.base import PluginResult
 
@@ -75,6 +79,8 @@ class PluginManager:
                 "name": name,
                 "description": getattr(plugin, "description", ""),
                 "min_trust_level": getattr(plugin, "min_trust_level", 1),
+                "permissions": list(getattr(plugin, "permissions", [])),
+                "examples": list(getattr(plugin, "examples", [])),
             }
             for name, plugin in sorted(self.plugins.items())
         ]
