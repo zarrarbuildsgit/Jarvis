@@ -187,6 +187,7 @@ async def headless_agent_loop(system):
                     data = json.loads(raw)
                     if data.get("type") == "new_task":
                         task = data["task"]
+                        await ws.send(json.dumps({"type": "task_update", "taskId": task["id"], "status": "running", "progress": 5}))
                         await ws.send(json.dumps({"type": "agent_thought", "text": f"Processing {task['id']}: {task['command']}"}))
                         result = await crew.process_command(task["command"], trust)
                         await ws.send(json.dumps({

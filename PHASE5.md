@@ -106,6 +106,7 @@ uv run python scripts/smoke_sprint3.py
 uv run python scripts/smoke_sprint4.py
 uv run python scripts/smoke_sprint5.py
 uv run python scripts/smoke_sprint6.py
+uv run python scripts/smoke_sprint7.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -186,5 +187,38 @@ GET /api/resources?profile=gtx1050ti
 ```
 
 The vision router now checks the resource guard before loading models and exposes resource pressure/model-cache stats through `get_model_info()`. In GTX 1050 Ti, low-RAM, and safe-mode profiles, heavy models such as Qwen remain blocked by default.
+
+## Sprint 7 Task Queue + Scheduler
+
+JARVIS now has a persistent task queue and scheduler:
+
+- `backend/tasks/models.py` — task/schedule dataclasses and statuses
+- `backend/tasks/queue.py` — JSON-backed task queue with cancel/pause/resume/complete/fail
+- `backend/tasks/scheduler.py` — one-time, delayed, interval, and daily schedule definitions
+- `backend/tasks/history.py` — append-only task history JSONL
+
+Task state is stored under `data/tasks/` at runtime.
+
+Task API endpoints:
+
+```text
+POST   /api/agent/command
+GET    /api/tasks?status=queued
+GET    /api/tasks/history?limit=100
+POST   /api/tasks/{task_id}/pause
+POST   /api/tasks/{task_id}/resume
+DELETE /api/tasks/{task_id}
+```
+
+Schedule API endpoints:
+
+```text
+POST   /api/schedules
+GET    /api/schedules
+POST   /api/schedules/enqueue-due
+DELETE /api/schedules/{schedule_id}
+```
+
+The headless agent now sends a `running` update before processing queued tasks, and websocket task updates are mirrored back into the persistent queue.
 
 

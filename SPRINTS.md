@@ -203,6 +203,8 @@ Make low-VRAM operation safe and predictable.
 
 # Sprint 7 — Task Queue + Scheduler
 
+**Status: Implemented in local Sprint 7 commit.**
+
 ## Goal
 Support async tasks, delayed tasks, recurring jobs, and task history.
 
@@ -221,10 +223,10 @@ Support async tasks, delayed tasks, recurring jobs, and task history.
 - `backend/tasks/__init__.py`
 
 ## Acceptance Criteria
-- API-created tasks flow through queue.
-- Tasks can be cancelled.
-- Delayed and recurring task definitions exist.
-- Task state survives restart where practical.
+- API-created tasks flow through queue. ✅
+- Tasks can be cancelled. ✅
+- Delayed and recurring task definitions exist. ✅
+- Task state survives restart where practical. ✅
 
 ---
 
@@ -399,4 +401,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1, 2, 3, 4, 5, and 6 are implemented. Next recommended sprint: **Sprint 7 — Task Queue + Scheduler**. Resource monitoring and model pressure decisions now exist, so queued/scheduled tasks can use them to pause, cancel, or avoid heavy work under pressure.
+Sprints 1, 2, 3, 4, 5, 6, and 7 are implemented. Next recommended sprint: **Sprint 8 — Dashboard Control Center**. The backend now has persistent tasks, schedules, approvals, plugins, config, and resources, so the dashboard can become a real control center instead of a static UI.

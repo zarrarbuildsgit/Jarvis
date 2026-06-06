@@ -29,6 +29,15 @@ class ApprovalResolution(BaseModel):
     resolved_by: Optional[str] = "user"
     note: Optional[str] = ""
 
+class ScheduleRequest(BaseModel):
+    command: str
+    schedule_type: str = "once"  # once, delay, interval, daily
+    run_at: Optional[str] = None
+    delay_seconds: Optional[int] = None
+    interval_seconds: Optional[int] = None
+    daily_time: Optional[str] = None
+    priority: Optional[str] = "normal"
+
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -55,7 +64,12 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
-tasks: Dict[str, dict] = {}
+from backend.tasks import TaskHistory, TaskQueue, TaskScheduler, TaskStatus
+
+task_history = TaskHistory()
+task_queue = TaskQueue(history=task_history)
+task_scheduler = TaskScheduler(queue=task_queue)
+tasks: Dict[str, dict] = {task.id: task.to_dict() for task in task_queue.list()}
 _agent_status: dict = {}
 
 @app.get("/api/health")
@@ -64,7 +78,8 @@ async def health():
         "status": "ok",
         "agent": "online" if manager.agent_ws else "offline",
         "clients": len(manager.active),
-        "active_tasks": len([t for t in tasks.values() if t.get("status") == "running"])
+        "active_tasks": len([t for t in task_queue.list() if t.status == TaskStatus.RUNNING]),
+        "queued_tasks": len([t for t in task_queue.list() if t.status == TaskStatus.QUEUED])
     }
 
 @app.post("/api/agent/command")
@@ -72,17 +87,43 @@ async def send_command(req: CommandRequest):
     if not manager.agent_ws:
         raise HTTPException(503, "Agent not connected")
     
-    task_id = f"task_{len(tasks) + 1}"
-    tasks[task_id] = {"id": task_id, "command": req.command, "status": "queued", "priority": req.priority}
+    task = task_queue.add(req.command, priority=req.priority or "normal")
+    tasks[task.id] = task.to_dict()
     
-    await manager.send_to_agent({"type": "new_task", "task": tasks[task_id]})
-    await manager.broadcast({"type": "task_created", "task": tasks[task_id]})
+    await manager.send_to_agent({"type": "new_task", "task": task.to_dict()})
+    await manager.broadcast({"type": "task_created", "task": task.to_dict()})
     
-    return {"task_id": task_id, "status": "queued"}
+    return {"task_id": task.id, "status": task.status.value}
 
 @app.get("/api/tasks")
-async def get_tasks():
-    return {"tasks": list(tasks.values())}
+async def get_tasks(status: Optional[str] = None):
+    try:
+        queued = [task.to_dict() for task in task_queue.list(status)]
+        return {"tasks": queued}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+@app.get("/api/tasks/history")
+async def get_task_history(limit: int = 100, task_id: Optional[str] = None):
+    return {"events": task_history.tail(limit, task_id)}
+
+@app.post("/api/tasks/{task_id}/pause")
+async def pause_task(task_id: str):
+    try:
+        task = task_queue.pause(task_id)
+        await manager.broadcast({"type": "task_update", "taskId": task.id, **task.to_dict()})
+        return {"task": task.to_dict()}
+    except KeyError:
+        raise HTTPException(404, "Task not found")
+
+@app.post("/api/tasks/{task_id}/resume")
+async def resume_task(task_id: str):
+    try:
+        task = task_queue.resume(task_id)
+        await manager.broadcast({"type": "task_update", "taskId": task.id, **task.to_dict()})
+        return {"task": task.to_dict()}
+    except KeyError:
+        raise HTTPException(404, "Task not found")
 
 @app.get("/api/status")
 async def status():
@@ -177,13 +218,58 @@ async def audit_tail(limit: int = 100):
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+@app.post("/api/schedules")
+async def create_schedule(req: ScheduleRequest):
+    try:
+        if req.schedule_type == "delay":
+            schedule = task_scheduler.schedule_delay(req.command, req.delay_seconds or 0, req.priority or "normal")
+        elif req.schedule_type == "interval":
+            if not req.interval_seconds:
+                raise HTTPException(400, "interval_seconds is required for interval schedules")
+            schedule = task_scheduler.schedule_interval(req.command, req.interval_seconds, req.priority or "normal")
+        elif req.schedule_type == "daily":
+            if not req.daily_time:
+                raise HTTPException(400, "daily_time is required for daily schedules")
+            schedule = task_scheduler.schedule_daily(req.command, req.daily_time, req.priority or "normal")
+        else:
+            if not req.run_at:
+                raise HTTPException(400, "run_at is required for once schedules")
+            schedule = task_scheduler.schedule_once(req.command, req.run_at, req.priority or "normal")
+        await manager.broadcast({"type": "schedule_created", "schedule": schedule.to_dict()})
+        return {"schedule": schedule.to_dict()}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+@app.get("/api/schedules")
+async def list_schedules(enabled: Optional[bool] = None):
+    return {"schedules": [schedule.to_dict() for schedule in task_scheduler.list(enabled)]}
+
+@app.post("/api/schedules/enqueue-due")
+async def enqueue_due_schedules():
+    enqueued = task_scheduler.enqueue_due()
+    for item in enqueued:
+        await manager.broadcast({"type": "task_created", "task": item["task"], "schedule": item["schedule"]})
+        await manager.send_to_agent({"type": "new_task", "task": item["task"]})
+    return {"enqueued": enqueued}
+
+@app.delete("/api/schedules/{schedule_id}")
+async def cancel_schedule(schedule_id: str):
+    try:
+        schedule = task_scheduler.cancel(schedule_id)
+        await manager.broadcast({"type": "schedule_cancelled", "schedule": schedule.to_dict()})
+        return {"schedule": schedule.to_dict()}
+    except KeyError:
+        raise HTTPException(404, "Schedule not found")
+
 @app.delete("/api/tasks/{task_id}")
 async def cancel_task(task_id: str):
-    if task_id not in tasks:
+    try:
+        task = task_queue.cancel(task_id)
+    except KeyError:
         raise HTTPException(404, "Task not found")
-    tasks[task_id]["status"] = "cancelled"
-    await manager.broadcast({"type": "task_cancelled", "task_id": task_id})
-    return {"status": "cancelled"}
+    tasks[task_id] = task.to_dict()
+    await manager.broadcast({"type": "task_cancelled", "task_id": task_id, "task": task.to_dict()})
+    return {"status": task.status.value, "task": task.to_dict()}
 
 @app.websocket("/ws/agent")
 async def agent_ws(ws: WebSocket):
@@ -196,7 +282,25 @@ async def agent_ws(ws: WebSocket):
             if data.get("type") == "agent_status":
                 _agent_status.update(data.get("status", {}))
                 await manager.broadcast({"type": "status_update", "status": _agent_status})
-            elif data.get("type") in {"agent_thought", "agent_result", "task_update"}:
+            elif data.get("type") == "task_update":
+                task_id = data.get("taskId") or data.get("task_id")
+                if task_id:
+                    status = data.get("status")
+                    try:
+                        if status == "completed":
+                            task_queue.complete(task_id, data.get("result", ""))
+                        elif status == "failed":
+                            task_queue.fail(task_id, data.get("error") or data.get("result", ""))
+                        elif status == "running":
+                            task_queue.mark_running(task_id)
+                        elif status == "cancelled":
+                            task_queue.cancel(task_id)
+                        elif "progress" in data:
+                            task_queue.update(task_id, progress=int(data.get("progress", 0)))
+                    except KeyError:
+                        pass
+                await manager.broadcast(data)
+            elif data.get("type") in {"agent_thought", "agent_result"}:
                 await manager.broadcast(data)
     except WebSocketDisconnect:
         manager.disconnect(ws)
