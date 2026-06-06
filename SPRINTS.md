@@ -344,6 +344,8 @@ Allow users to teach JARVIS reusable workflows.
 
 # Sprint 12 — Browser Automation + External Integrations
 
+**Status: Implemented in local Sprint 12 commit.**
+
 ## Goal
 Add robust browser and online workflows safely.
 
@@ -360,9 +362,9 @@ Add robust browser and online workflows safely.
 - future integration plugins
 
 ## Acceptance Criteria
-- Browser actions use safe deterministic APIs where possible.
-- Sending/posting actions require approval.
-- Pages can be summarized/read into memory.
+- Browser actions use safe deterministic APIs where possible. ✅
+- Sending/posting actions require approval. ✅
+- Pages can be summarized/read into memory. ✅
 
 ---
 
@@ -409,4 +411,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 through 11 are implemented. Next recommended sprint: **Sprint 12 — Browser Automation + External Integrations**. Skills/macros now exist, so browser workflows and integrations can become reusable, approved, and personalized skills.
+Sprints 1 through 12 are implemented. Next recommended sprint: **Sprint 13 — Testing, CI, and Quality Gates**. Browser actions and draft-only integrations now exist, so the next step is locking quality down with automated tests and CI.

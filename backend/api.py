@@ -186,6 +186,38 @@ async def plugins():
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+@app.get("/api/browser/drafts")
+async def browser_drafts(status: Optional[str] = None):
+    try:
+        from backend.browser import ExternalDraftStore
+        return {"drafts": [d.to_dict() for d in ExternalDraftStore().list(status)]}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/browser/read")
+async def browser_read(payload: dict):
+    try:
+        from backend.browser import BrowserActions
+        url = str(payload.get("url", ""))
+        result = BrowserActions().read_and_summarize(url)
+        return result.to_dict()
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/browser/draft")
+async def browser_create_draft(payload: dict):
+    try:
+        from backend.browser import BrowserActions
+        draft = BrowserActions().draft_message(
+            str(payload.get("kind", "message")),
+            str(payload.get("recipient", "")),
+            str(payload.get("body", "")),
+            str(payload.get("subject", "")),
+        )
+        return {"draft": draft.to_dict()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.get("/api/skills")
 async def list_skills(status: Optional[str] = None):
     try:

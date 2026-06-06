@@ -111,6 +111,7 @@ uv run python scripts/smoke_sprint8.py
 uv run python scripts/smoke_sprint9.py
 uv run python scripts/smoke_sprint10.py
 uv run python scripts/smoke_sprint11.py
+uv run python scripts/smoke_sprint12.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -313,5 +314,36 @@ DELETE /api/skills/{skill_id}
 ```
 
 `JARVIS_Crew` checks enabled skill trigger phrases before plugin/runtime fallback. A phrase like `start coding mode` can now run a saved macro. Skill execution still goes through policy checks, so destructive skill steps are blocked or require approval.
+
+## Sprint 12 Browser Automation + External Integrations
+
+Browser workflows now have deterministic helpers and safe draft-only integration behavior:
+
+- `backend/browser/session.py` — open/search/read URL helpers and lightweight page text extraction
+- `backend/browser/actions.py` — browser actions, page summarization, and external draft storage
+- `backend/browser/__init__.py`
+- `plugins/browser.py` — upgraded to use browser actions and draft external messages/emails
+
+New browser/integration API endpoints:
+
+```text
+GET  /api/browser/drafts
+POST /api/browser/read
+POST /api/browser/draft
+```
+
+Supported browser plugin commands include:
+
+```text
+open url https://example.com
+go to example.com
+search web for jarvis ai
+youtube search local ai
+read url https://example.com
+summarize url https://example.com
+draft email to user@example.com saying hello
+```
+
+External communication is draft-only. JARVIS creates a draft record under `data/integrations/drafts.json` and does not send/post automatically.
 
 
