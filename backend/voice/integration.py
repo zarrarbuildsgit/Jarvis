@@ -8,9 +8,15 @@ import numpy as np
 import time
 from typing import Optional, Callable
 from pathlib import Path
-from loguru import logger
-import pyaudio
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover - minimal env fallback
+    import logging
+    logger = logging.getLogger(__name__)
 
+from backend.voice.audio_session import AudioPlaybackController
+from backend.voice.conversation import VoiceConversationManager
+from backend.voice.interrupts import VoiceIntent, VoiceInterruptDetector
 from backend.voice.stt_engine import STTEngine
 from backend.voice.tts_engine import F5TTSEngine
 from backend.voice.wake_word import WakeWordDetector
@@ -31,8 +37,15 @@ class VoiceIntegration:
         self.trust = trust_manager
         self.continuous = continuous
         self.idle_timeout_seconds = idle_timeout_seconds
+        self.conversation = VoiceConversationManager(
+            idle_timeout_seconds=idle_timeout_seconds,
+            wake_word_required_first_turn=True,
+        )
+        self.interrupts = VoiceInterruptDetector()
+        self.playback = AudioPlaybackController()
         self._recording = False
         self._last_interaction = 0.0
+        self._cancel_requested = False
         
         # Audio config
         self.sample_rate = 16000
@@ -50,6 +63,7 @@ class VoiceIntegration:
         self.on_voice_command = None
         self.on_tts_start = None
         self.on_tts_end = None
+        self.on_state_change = None
         
     def initialize(self):
         """Initialize all voice components"""
@@ -71,6 +85,11 @@ class VoiceIntegration:
     async def start_voice_loop(self):
         """Main voice interaction loop"""
         self._listening = True
+        try:
+            import pyaudio
+        except Exception as exc:
+            logger.error(f"❌ PyAudio unavailable: {exc}")
+            return
         self._pyaudio = pyaudio.PyAudio()
         
         # Find best mic
@@ -142,6 +161,8 @@ class VoiceIntegration:
         self._listening = True
         self._recording = True
         self._last_interaction = time.time()
+        self.conversation.on_wake_word()
+        self._emit_state()
         logger.info("🔔 Wake word detected - listening...")
         
         # Visual feedback
@@ -164,20 +185,37 @@ class VoiceIntegration:
                 return
             
             logger.info(f"🎤 You said: '{text}'")
-            
-            # 2. Send to agent
+            self._last_interaction = time.time()
+
+            # 2. Interruption / conversation commands
+            intent = self.interrupts.classify(text)
+            if intent.intent != VoiceIntent.NORMAL:
+                await self._handle_voice_intent(intent)
+                return
+
+            context_prompt = self.conversation.accept_text(text)
+            self._emit_state()
+            enriched_text = text
+            if self.continuous and context_prompt:
+                enriched_text = f"{text}\n\n{context_prompt}"
+
+            # 3. Send to agent
             if self.on_voice_command:
                 self.on_voice_command(text)
             
-            result = await self.agent.process_command(text, self.trust)
+            result = await self.agent.process_command(enriched_text, self.trust)
             logger.info(f"🤖 Agent response: {result}")
+            self.conversation.add_assistant_response(str(result))
             self._last_interaction = time.time()
+            self._emit_state()
             
-            # 3. Speak response
+            # 4. Speak response
             if self.tts.model:
-                output_path = self.tts.speak(result)
+                output_path = self.tts.speak(str(result))
                 if output_path:
                     await self._play_audio(output_path)
+            self.conversation.mark_listening()
+            self._emit_state()
             
         except Exception as e:
             logger.error(f"❌ Voice processing failed: {e}")
@@ -191,17 +229,23 @@ class VoiceIntegration:
             import soundfile as sf
             
             data, fs = sf.read(filepath)
+            self.playback.mark_playing(filepath)
+            self._emit_state()
             
             if self.on_tts_start:
                 self.on_tts_start("Speaking...")
             
             sd.play(data, fs)
             sd.wait()
+            self.playback.mark_idle()
             
             if self.on_tts_end:
                 self.on_tts_end("Done")
+            self._emit_state()
                 
         except Exception as e:
+            self.playback.mark_error(str(e))
+            self._emit_state()
             logger.error(f"❌ Audio playback failed: {e}")
     
     def _find_mic(self) -> Optional[int]:
@@ -226,6 +270,8 @@ class VoiceIntegration:
         """Stop voice listening"""
         self._listening = False
         self._recording = False
+        self.conversation.end()
+        self.playback.stop()
         self.wake_word.stop()
         
         if self._audio_stream:
@@ -236,6 +282,41 @@ class VoiceIntegration:
             self._pyaudio.terminate()
         
         logger.info("🔇 Voice loop stopped")
+        self._emit_state()
+
+    async def _handle_voice_intent(self, intent):
+        """Handle stop/cancel/pause/resume/sleep without sending to agent."""
+        logger.info(f"Voice intent: {intent.intent.value}")
+        if intent.intent == VoiceIntent.STOP:
+            self.playback.stop()
+            self.conversation.mark_listening()
+        elif intent.intent == VoiceIntent.CANCEL:
+            self._cancel_requested = True
+            self.playback.stop()
+            self.conversation.mark_listening()
+        elif intent.intent == VoiceIntent.PAUSE:
+            self.conversation.pause()
+            self.playback.stop()
+        elif intent.intent == VoiceIntent.RESUME:
+            self.conversation.resume()
+        elif intent.intent == VoiceIntent.SLEEP:
+            self.conversation.end()
+            self._recording = False
+        elif intent.intent == VoiceIntent.STATUS:
+            self.conversation.add_assistant_response(intent.response)
+        self._last_interaction = time.time()
+        self._emit_state()
+        if intent.response and self.tts.model and intent.intent not in {VoiceIntent.STOP, VoiceIntent.CANCEL}:
+            output_path = self.tts.speak(intent.response)
+            if output_path:
+                await self._play_audio(output_path)
+
+    def _emit_state(self):
+        if self.on_state_change:
+            try:
+                self.on_state_change(self.get_status())
+            except Exception as exc:
+                logger.warning(f"Voice state callback failed: {exc}")
     
     def get_status(self) -> dict:
         return {
@@ -243,6 +324,9 @@ class VoiceIntegration:
             "processing": self._processing,
             "recording": self._recording,
             "continuous": self.continuous,
+            "cancel_requested": self._cancel_requested,
+            "conversation": self.conversation.to_dict(),
+            "playback": self.playback.to_dict(),
             "stt": self.stt.get_model_info(),
             "tts": self.tts.get_info(),
             "wake_word": "active" if self.wake_word._running else "inactive"

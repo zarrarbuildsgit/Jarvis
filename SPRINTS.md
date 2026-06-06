@@ -261,6 +261,8 @@ Make the dashboard operational, not just visual.
 
 # Sprint 9 — Voice Conversation Upgrade
 
+**Status: Implemented in local Sprint 9 commit.**
+
 ## Goal
 Make JARVIS feel conversational and interruptible.
 
@@ -278,10 +280,10 @@ Make JARVIS feel conversational and interruptible.
 - `backend/voice/integration.py`
 
 ## Acceptance Criteria
-- Wake word starts a timed session.
-- Follow-up commands do not need wake word.
-- “stop/cancel/never mind” interrupts task flow.
-- Voice status appears in API/dashboard.
+- Wake word starts a timed session. ✅
+- Follow-up commands do not need wake word. ✅
+- “stop/cancel/never mind” interrupts task flow. ✅
+- Voice status appears in API/dashboard. ✅
 
 ---
 
@@ -403,4 +405,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 through 8 are implemented. Next recommended sprint: **Sprint 9 — Voice Conversation Upgrade**. The dashboard now exposes tasks, schedules, approvals, plugins, config, resources, trust, audit logs, and websocket updates, so voice can safely plug into the same runtime/control surfaces.
+Sprints 1 through 9 are implemented. Next recommended sprint: **Sprint 10 — Memory Intelligence**. Voice now has conversation sessions, follow-up context, interruption commands, and playback state, so memory can start learning preferences and important facts from these interactions.

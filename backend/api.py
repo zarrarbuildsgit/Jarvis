@@ -179,6 +179,10 @@ async def plugins():
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+@app.get("/api/voice/status")
+async def voice_status():
+    return {"voice": _agent_status.get("voice", _agent_status.get("voice_status", {}))}
+
 @app.get("/api/trust")
 async def trust_summary():
     try:

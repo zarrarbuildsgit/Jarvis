@@ -8,7 +8,11 @@ import soundfile as sf
 import numpy as np
 from pathlib import Path
 from typing import Optional
-from loguru import logger
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover - minimal env fallback
+    import logging
+    logger = logging.getLogger(__name__)
 import time
 
 class F5TTSEngine:

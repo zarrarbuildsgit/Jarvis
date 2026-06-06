@@ -6,7 +6,11 @@ Listens for "Hey JARVIS" or custom wake word
 import numpy as np
 import torch
 from pathlib import Path
-from loguru import logger
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover - minimal env fallback
+    import logging
+    logger = logging.getLogger(__name__)
 from typing import Optional, Callable
 import queue
 import threading

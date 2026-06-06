@@ -6,7 +6,11 @@ NVIDIA Canary (Primary STT) -> Faster-Whisper (Fallback)
 import torch
 import numpy as np
 from pathlib import Path
-from loguru import logger
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover - minimal env fallback
+    import logging
+    logger = logging.getLogger(__name__)
 from typing import Optional
 
 class STTEngine:
@@ -105,3 +109,14 @@ class STTEngine:
         audio_tensor = torch.from_numpy(audio_chunk).float().to(self.device)
         speech_prob = self.vad_model(audio_tensor, 16000).item()
         return speech_prob > threshold
+
+
+    def get_model_info(self) -> dict:
+        return {
+            "device": self.device,
+            "primary_loaded": self._primary_loaded,
+            "fallback_loaded": self._fallback_loaded,
+            "vad_loaded": self._vad_loaded,
+            "primary": "nvidia_canary",
+            "fallback": "faster_whisper",
+        }

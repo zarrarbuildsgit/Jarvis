@@ -108,6 +108,7 @@ uv run python scripts/smoke_sprint5.py
 uv run python scripts/smoke_sprint6.py
 uv run python scripts/smoke_sprint7.py
 uv run python scripts/smoke_sprint8.py
+uv run python scripts/smoke_sprint9.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -247,5 +248,29 @@ GET  /api/memory/stats
 ```
 
 The Express UI server now serves the standalone dashboard from `ui-server/public/` and falls back to `index.html` for local navigation.
+
+## Sprint 9 Voice Conversation Upgrade
+
+Voice mode now has a real conversation state layer:
+
+- `backend/voice/conversation.py` — timed wake-word sessions, recent turns, follow-up context, session state
+- `backend/voice/interrupts.py` — stop/cancel/pause/resume/sleep/status intent detection
+- `backend/voice/audio_session.py` — playback state and barge-in stop helper
+- `backend/voice/integration.py` — continuous follow-up context, interrupt handling, playback state callbacks
+
+Supported voice control phrases include:
+
+```text
+stop
+stop talking
+cancel
+never mind
+pause listening
+resume
+go to sleep
+voice status
+```
+
+Wake word starts a timed session. Follow-up commands inside the idle window are enriched with recent conversation context, so the agent can understand short follow-ups better. Playback can be stopped for barge-in style interruptions where supported by `sounddevice`.
 
 
