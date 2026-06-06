@@ -370,6 +370,8 @@ Add robust browser and online workflows safely.
 
 # Sprint 13 — Testing, CI, and Developer Quality Gates
 
+**Status: Implemented in local Sprint 13 commit.**
+
 ## Goal
 Prevent regressions and bad code quality.
 
@@ -385,9 +387,9 @@ Prevent regressions and bad code quality.
 - `pyproject.toml`
 
 ## Acceptance Criteria
-- `python -m compileall` passes.
-- Planner/policy/plugin tests pass.
-- CI runs lint + tests.
+- `python -m compileall` passes. ✅
+- Planner/policy/plugin tests pass. ✅
+- CI runs lint + tests. ✅
 
 ---
 
@@ -411,4 +413,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 through 12 are implemented. Next recommended sprint: **Sprint 13 — Testing, CI, and Quality Gates**. Browser actions and draft-only integrations now exist, so the next step is locking quality down with automated tests and CI.
+Sprints 1 through 13 are implemented. The original roadmap is complete. Next recommended work: run the full suite on Windows hardware, push to GitHub, then start hardening real desktop/audio/GPU integration based on actual machine test results.

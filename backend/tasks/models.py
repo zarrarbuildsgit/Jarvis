@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
 
 def utc_now_iso() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat() + "Z"
 
 
 def parse_iso(value: str | None) -> Optional[datetime]:
@@ -18,7 +18,10 @@ def parse_iso(value: str | None) -> Optional[datetime]:
         return None
     text = value[:-1] if value.endswith("Z") else value
     try:
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
     except ValueError:
         return None
 
@@ -77,7 +80,7 @@ class Task:
     @property
     def is_due(self) -> bool:
         due_at = parse_iso(self.scheduled_for)
-        return due_at is None or due_at <= datetime.utcnow()
+        return due_at is None or due_at <= datetime.now(timezone.utc)
 
     def mark(self, status: TaskStatus, *, result: str = "", error: str = "", progress: Optional[int] = None) -> None:
         self.status = status
@@ -139,7 +142,7 @@ class ScheduledTask:
         return cls(**clean)
 
     def compute_next_run(self) -> Optional[str]:
-        now = datetime.utcnow().replace(microsecond=0)
+        now = datetime.now(timezone.utc).replace(microsecond=0)
         if self.schedule_type == ScheduleType.ONCE:
             return None
         if self.schedule_type == ScheduleType.INTERVAL and self.interval_seconds:

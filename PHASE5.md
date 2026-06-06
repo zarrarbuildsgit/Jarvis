@@ -112,6 +112,7 @@ uv run python scripts/smoke_sprint9.py
 uv run python scripts/smoke_sprint10.py
 uv run python scripts/smoke_sprint11.py
 uv run python scripts/smoke_sprint12.py
+uv run python scripts/run_quality_checks.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -345,5 +346,21 @@ draft email to user@example.com saying hello
 ```
 
 External communication is draft-only. JARVIS creates a draft record under `data/integrations/drafts.json` and does not send/post automatically.
+
+## Sprint 13 Testing, CI, and Quality Gates
+
+Quality gates are now in place:
+
+- `tests/` — stdlib unit tests for planner, policy, memory, skills, browser, tasks, and config
+- `scripts/run_quality_checks.py` — compile, unit test, smoke test, and Node syntax check runner
+- `.github/workflows/ci.yml` — GitHub Actions workflow for pushes and pull requests
+
+Run the full local quality suite:
+
+```powershell
+uv run python scripts/run_quality_checks.py
+```
+
+The quality runner executes all Sprint 2–12 smoke checks plus unit tests and compile checks.
 
 

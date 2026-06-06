@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 import json
@@ -47,7 +47,7 @@ class TaskScheduler:
         return scheduled
 
     def schedule_delay(self, command: str, delay_seconds: int, priority: str | TaskPriority = TaskPriority.NORMAL, metadata: Optional[dict] = None) -> ScheduledTask:
-        run_at = (datetime.utcnow().replace(microsecond=0) + timedelta(seconds=max(0, delay_seconds))).isoformat() + "Z"
+        run_at = (datetime.now(timezone.utc).replace(microsecond=0) + timedelta(seconds=max(0, delay_seconds))).isoformat() + "Z"
         return self.schedule_once(command, run_at, priority, metadata)
 
     def schedule_interval(self, command: str, interval_seconds: int, priority: str | TaskPriority = TaskPriority.NORMAL, metadata: Optional[dict] = None) -> ScheduledTask:
@@ -87,7 +87,7 @@ class TaskScheduler:
         return scheduled
 
     def due(self) -> List[ScheduledTask]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         due_items: list[ScheduledTask] = []
         for scheduled in self._schedules.values():
             if not scheduled.enabled:
