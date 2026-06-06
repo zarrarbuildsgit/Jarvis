@@ -177,6 +177,8 @@ Centralize settings and support machine-specific profiles.
 
 # Sprint 6 — Resource Guard + GTX 1050 Ti Hardening
 
+**Status: Implemented in local Sprint 6 commit.**
+
 ## Goal
 Make low-VRAM operation safe and predictable.
 
@@ -193,9 +195,9 @@ Make low-VRAM operation safe and predictable.
 - `backend/optimization/model_cache.py`
 
 ## Acceptance Criteria
-- JARVIS can report CPU/RAM/GPU/VRAM.
-- Vision router respects resource pressure.
-- Qwen stays disabled in GTX 1050 Ti profile unless explicitly enabled.
+- JARVIS can report CPU/RAM/GPU/VRAM. ✅
+- Vision router respects resource pressure. ✅
+- Qwen stays disabled in GTX 1050 Ti profile unless explicitly enabled. ✅
 
 ---
 
@@ -397,4 +399,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1, 2, 3, 4, and 5 are implemented. Next recommended sprint: **Sprint 6 — Resource Guard + GTX 1050 Ti Hardening**. Profile-based config now exists, so the next step is connecting live CPU/RAM/GPU monitoring and model unload decisions to those profiles.
+Sprints 1, 2, 3, 4, 5, and 6 are implemented. Next recommended sprint: **Sprint 7 — Task Queue + Scheduler**. Resource monitoring and model pressure decisions now exist, so queued/scheduled tasks can use them to pause, cancel, or avoid heavy work under pressure.

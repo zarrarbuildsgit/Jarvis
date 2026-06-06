@@ -105,6 +105,7 @@ uv run python scripts/smoke_sprint2.py
 uv run python scripts/smoke_sprint3.py
 uv run python scripts/smoke_sprint4.py
 uv run python scripts/smoke_sprint5.py
+uv run python scripts/smoke_sprint6.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -169,5 +170,21 @@ GET /api/config?profile=gtx1050ti
 ```
 
 The selected profile is passed into the main runtime and vision router. `gtx1050ti` forces the GTX 1050 Ti optimization profile and keeps heavy Qwen vision disabled by default.
+
+## Sprint 6 Resource Guard + GTX 1050 Ti Hardening
+
+JARVIS now includes resource monitoring and model pressure decisions:
+
+- `backend/system/gpu_monitor.py` — CPU/RAM/GPU/VRAM telemetry via psutil, nvidia-smi, and torch fallback
+- `backend/system/resource_guard.py` — pressure levels, recommended actions, and model-load decisions
+- `backend/optimization/model_cache.py` — model lifecycle registry and idle unload callbacks
+
+New API endpoint:
+
+```text
+GET /api/resources?profile=gtx1050ti
+```
+
+The vision router now checks the resource guard before loading models and exposes resource pressure/model-cache stats through `get_model_info()`. In GTX 1050 Ti, low-RAM, and safe-mode profiles, heavy models such as Qwen remain blocked by default.
 
 

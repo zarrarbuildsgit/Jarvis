@@ -94,6 +94,19 @@ async def update_agent_status(status_update: dict):
     await manager.broadcast({"type": "status_update", "status": _agent_status})
     return {"ok": True, "status": _agent_status}
 
+@app.get("/api/resources")
+async def resources(profile: Optional[str] = None):
+    try:
+        from backend.config.loader import load_config
+        from backend.system.resource_guard import ResourceGuard
+        cfg = load_config(profile, force_reload=True) if profile else load_config()
+        guard = ResourceGuard.from_jarvis_config(cfg)
+        snapshot = guard.snapshot()
+        pressure = guard.assess(snapshot)
+        return {"resources": snapshot.to_dict(), "pressure": pressure.to_dict(), "profile": cfg.system.profile}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.get("/api/config/profiles")
 async def config_profiles():
     try:

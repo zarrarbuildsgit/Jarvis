@@ -14,6 +14,8 @@ from PIL import Image
 from loguru import logger
 
 from backend.optimization import GTX1050TiProfile, detect_profile
+from backend.optimization.model_cache import ModelCache
+from backend.system.resource_guard import ResourceGuard, ResourceGuardConfig
 
 
 class VisionRouter:
@@ -27,6 +29,9 @@ class VisionRouter:
         else:
             self.profile = detect_profile()
         self.lazy_load = lazy_load
+        guard_profile = optimization_profile or ("gtx1050ti" if self.profile else "default")
+        self.resource_guard = ResourceGuard(ResourceGuardConfig(profile_name=guard_profile, max_vram_gb=4.0 if guard_profile == "gtx1050ti" else 6.0))
+        self.model_cache = ModelCache()
         self.model_specs = {
             "smolvlm": {
                 "id": "HuggingFaceTB/SmolVLM-Instruct",
@@ -59,6 +64,10 @@ class VisionRouter:
     def _load_model(self, name: str) -> bool:
         if name in self.models:
             return True
+        allowed, reason = self.resource_guard.can_load_model(name)
+        if not allowed:
+            logger.warning("Skipping %s: %s", name, reason)
+            return False
         if name == "qwen" and self.profile:
             logger.warning("Skipping Qwen by default on GTX1050Ti/4GB profile. Use a smaller model or disable profile to force it.")
             return False
@@ -81,6 +90,7 @@ class VisionRouter:
                 if not kwargs.get("device_map"):
                     model = model.to(self.device)
             self.models[name] = {"processor": processor, "model": model}
+            self.model_cache.register(name, model=model, unload_callback=lambda n=name: self.unload_model(n), metadata={"device": self.device})
             self._set_default()
             logger.info("✓ %s loaded", name)
             return True
@@ -92,6 +102,7 @@ class VisionRouter:
     def unload_model(self, name: str) -> None:
         if name in self.models:
             del self.models[name]
+            self.model_cache.unregister(name)
             self._clear_cuda()
             self._set_default()
 
@@ -130,6 +141,7 @@ class VisionRouter:
             else:
                 return {"error": "No vision models available", "complexity": complexity}
         start_time = time.time()
+        self.model_cache.touch(model_name)
         result = self._run_model(model_name, query, screenshot)
         inference_time = time.time() - start_time
         return {
@@ -220,6 +232,8 @@ class VisionRouter:
             "profile": self.profile.as_dict() if self.profile else None,
             "loaded": list(self.models.keys()),
             "lazy_load": self.lazy_load,
+            "resource_pressure": self.resource_guard.assess().to_dict(),
+            "model_cache": self.model_cache.stats(),
         }
         for name, data in self.models.items():
             try:
