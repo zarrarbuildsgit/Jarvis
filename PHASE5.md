@@ -98,9 +98,31 @@ POST /api/approvals/{approval_id}/deny
 GET  /api/audit?limit=100
 ```
 
-Smoke check:
+Smoke checks:
 
 ```powershell
 uv run python scripts/smoke_sprint2.py
+uv run python scripts/smoke_sprint3.py
+```
+
+## Sprint 3 Windows Automation Layer
+
+The action runtime now has deterministic Windows-first helpers under `backend/windows/`:
+
+- `apps.py` — friendly app-name aliases and app/URL launch support
+- `windows.py` — list/focus/active-window helpers using pywinauto/win32gui when available
+- `clipboard.py` — get/set clipboard text
+- `processes.py` — list/find running processes
+- `shell.py` — bounded shell/open helpers
+
+New deterministic commands include:
+
+```text
+list windows
+focus window Chrome
+list processes
+get clipboard
+set clipboard to hello
+paste clipboard
 ```
 

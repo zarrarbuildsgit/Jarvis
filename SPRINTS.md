@@ -86,6 +86,8 @@ Make trust levels enforceable at the action level, not just command text level.
 
 # Sprint 3 — Windows Automation Layer
 
+**Status: Implemented in local Sprint 3 commit.**
+
 ## Goal
 Make Windows control reliable without depending on screen coordinates first.
 
@@ -106,10 +108,10 @@ Make Windows control reliable without depending on screen coordinates first.
 - `backend/windows/__init__.py`
 
 ## Acceptance Criteria
-- JARVIS can open Notepad/Chrome/VS Code by name.
-- JARVIS can focus windows by title.
-- Clipboard paste workflow works.
-- Coordinate clicking is fallback only.
+- JARVIS can open Notepad/Chrome/VS Code by name. ✅
+- JARVIS can focus windows by title. ✅
+- Clipboard paste workflow works. ✅
+- Coordinate clicking is fallback only. ✅
 
 ---
 
@@ -391,4 +393,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 and 2 are implemented. Next recommended sprint: **Sprint 3 — Windows Automation Layer**. Do not begin dashboard, skills, or advanced voice work until the Windows automation layer exists, because reliable app/window/clipboard control should be the main executor path before vision/coordinate fallback.
+Sprints 1, 2, and 3 are implemented. Next recommended sprint: **Sprint 4 — First-Party Plugins Pack**. Do not begin dashboard, skills, or advanced voice work until core plugins exist, because dashboard/voice/skills should exercise practical app, file, browser, terminal, and system-monitor capabilities.

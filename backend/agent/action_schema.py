@@ -29,6 +29,12 @@ class ActionType(str, Enum):
 
     RUN_TERMINAL = "run_terminal"
     OPEN_APP = "open_app"
+    LIST_WINDOWS = "list_windows"
+    FOCUS_WINDOW = "focus_window"
+    LIST_PROCESSES = "list_processes"
+    GET_CLIPBOARD = "get_clipboard"
+    SET_CLIPBOARD = "set_clipboard"
+    PASTE_CLIPBOARD = "paste_clipboard"
 
     LIST_FILES = "list_files"
     READ_FILE = "read_file"
@@ -38,7 +44,6 @@ class ActionType(str, Enum):
     CLICK = "click"
     TYPE_TEXT = "type_text"
     PRESS_KEY = "press_key"
-
 
 class ActionStatus(str, Enum):
     PENDING = "pending"

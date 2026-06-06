@@ -33,6 +33,9 @@ class DeterministicPlanner:
             self._plan_screen,
             self._plan_files,
             self._plan_terminal,
+            self._plan_windows,
+            self._plan_clipboard,
+            self._plan_processes,
             self._plan_open_app,
             self._plan_keyboard_mouse,
         ):
@@ -130,6 +133,61 @@ class DeterministicPlanner:
                     confidence=0.82,
                     actions=[Action(ActionType.RUN_TERMINAL, {"command": cmd}, f"Run {cmd}", required_trust=2)],
                 )
+        return None
+
+    def _plan_windows(self, original: str, normalized: str) -> Optional[ActionPlan]:
+        if normalized in {"list windows", "show windows", "open windows", "active windows"}:
+            return ActionPlan(
+                command=original,
+                summary="List open windows",
+                confidence=0.92,
+                actions=[Action(ActionType.LIST_WINDOWS, description="List open windows", required_trust=1)],
+            )
+        if normalized.startswith(("focus window ", "switch to window ", "activate window ")):
+            title = self._extract_after(original, ["focus window", "switch to window", "activate window"])
+            if title:
+                return ActionPlan(
+                    command=original,
+                    summary=f"Focus window {title}",
+                    confidence=0.88,
+                    actions=[Action(ActionType.FOCUS_WINDOW, {"title": self._strip_quotes(title)}, "Focus window", required_trust=2)],
+                )
+        return None
+
+    def _plan_clipboard(self, original: str, normalized: str) -> Optional[ActionPlan]:
+        if normalized in {"get clipboard", "read clipboard", "show clipboard"}:
+            return ActionPlan(
+                command=original,
+                summary="Read clipboard text",
+                confidence=0.92,
+                actions=[Action(ActionType.GET_CLIPBOARD, description="Read clipboard", required_trust=1)],
+            )
+        if normalized.startswith(("set clipboard to ", "copy to clipboard ")):
+            text = self._extract_after(original, ["set clipboard to", "copy to clipboard"])
+            if text:
+                return ActionPlan(
+                    command=original,
+                    summary="Set clipboard text",
+                    confidence=0.9,
+                    actions=[Action(ActionType.SET_CLIPBOARD, {"text": self._strip_quotes(text)}, "Set clipboard", required_trust=2)],
+                )
+        if normalized in {"paste clipboard", "paste", "paste text"}:
+            return ActionPlan(
+                command=original,
+                summary="Paste clipboard",
+                confidence=0.88,
+                actions=[Action(ActionType.PASTE_CLIPBOARD, description="Paste clipboard", required_trust=2)],
+            )
+        return None
+
+    def _plan_processes(self, original: str, normalized: str) -> Optional[ActionPlan]:
+        if normalized in {"list processes", "show processes", "running processes", "list running processes"}:
+            return ActionPlan(
+                command=original,
+                summary="List running processes",
+                confidence=0.9,
+                actions=[Action(ActionType.LIST_PROCESSES, {"limit": 50}, "List processes", required_trust=1)],
+            )
         return None
 
     def _plan_open_app(self, original: str, normalized: str) -> Optional[ActionPlan]:

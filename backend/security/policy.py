@@ -73,6 +73,9 @@ class PolicyEngine:
         ActionType.RESPOND,
         ActionType.STATUS,
         ActionType.LIST_PLUGINS,
+        ActionType.LIST_WINDOWS,
+        ActionType.LIST_PROCESSES,
+        ActionType.GET_CLIPBOARD,
         ActionType.LIST_FILES,
         ActionType.READ_FILE,
         ActionType.ANALYZE_SCREEN,
@@ -80,6 +83,9 @@ class PolicyEngine:
 
     INTERACTIVE_ACTIONS = {
         ActionType.OPEN_APP,
+        ActionType.FOCUS_WINDOW,
+        ActionType.SET_CLIPBOARD,
+        ActionType.PASTE_CLIPBOARD,
         ActionType.CLICK,
         ActionType.TYPE_TEXT,
         ActionType.PRESS_KEY,

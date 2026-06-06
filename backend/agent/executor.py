@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import platform
-import subprocess
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Optional
 
@@ -13,6 +11,7 @@ from loguru import logger
 
 from backend.agent.action_schema import Action, ActionResult, ActionStatus, ActionType
 from backend.agent.tools import FileTool, ScreenTool, TerminalTool
+from backend.windows import ClipboardManager, ProcessManager, ShellRunner, WindowManager, WindowsAppManager
 
 
 class ActionExecutor:
@@ -40,6 +39,11 @@ class ActionExecutor:
         self.status_provider = status_provider
         self.file_tool = FileTool()
         self.terminal_tool = TerminalTool(self.trust_level_getter())
+        self.shell = ShellRunner()
+        self.app_manager = WindowsAppManager(self.shell)
+        self.window_manager = WindowManager()
+        self.clipboard_manager = ClipboardManager()
+        self.process_manager = ProcessManager()
         self.screen_tool = (
             ScreenTool(screen_control, screen_capture, vision_router)
             if screen_control is not None and screen_capture is not None and vision_router is not None
@@ -71,6 +75,12 @@ class ActionExecutor:
                 ActionType.LIST_PLUGINS: self._list_plugins,
                 ActionType.RUN_TERMINAL: self._run_terminal,
                 ActionType.OPEN_APP: self._open_app,
+                ActionType.LIST_WINDOWS: self._list_windows,
+                ActionType.FOCUS_WINDOW: self._focus_window,
+                ActionType.LIST_PROCESSES: self._list_processes,
+                ActionType.GET_CLIPBOARD: self._get_clipboard,
+                ActionType.SET_CLIPBOARD: self._set_clipboard,
+                ActionType.PASTE_CLIPBOARD: self._paste_clipboard,
                 ActionType.LIST_FILES: self._list_files,
                 ActionType.READ_FILE: self._read_file,
                 ActionType.WRITE_FILE: self._write_file,
@@ -126,19 +136,41 @@ class ActionExecutor:
         target = str(action.parameters.get("target", "")).strip()
         if not target:
             raise ValueError("Missing open target")
+        result = await asyncio.to_thread(self.app_manager.open_app, target)
+        return result.message if result.success else f"❌ {result.message}"
 
-        # URLs/files/apps are delegated to the OS shell. This works best on Windows,
-        # but keeps cross-platform fallbacks for development.
-        if platform.system() == "Windows":
-            command = f'start "" "{target}"'
-            return await asyncio.to_thread(self.terminal_tool.execute, command)
-        if platform.system() == "Darwin":
-            proc = await asyncio.to_thread(subprocess.run, ["open", target], capture_output=True, text=True, timeout=15)
-        else:
-            proc = await asyncio.to_thread(subprocess.run, ["xdg-open", target], capture_output=True, text=True, timeout=15)
-        if proc.returncode != 0:
-            return f"❌ Failed to open {target}: {proc.stderr.strip()}"
-        return f"✓ Opened {target}"
+    async def _list_windows(self, action: Action) -> list[dict]:
+        windows = await asyncio.to_thread(self.window_manager.list_windows)
+        return [w.to_dict() for w in windows[: int(action.parameters.get("limit", 50))]]
+
+    async def _focus_window(self, action: Action) -> str:
+        title = str(action.parameters.get("title", "")).strip()
+        if not title:
+            raise ValueError("Missing window title")
+        success = await asyncio.to_thread(self.window_manager.focus_window, title)
+        return f"✓ Focused window matching '{title}'" if success else f"❌ Window not found or could not focus: {title}"
+
+    async def _list_processes(self, action: Action) -> list[dict]:
+        limit = int(action.parameters.get("limit", 50))
+        processes = await asyncio.to_thread(self.process_manager.list_processes, limit)
+        return [p.to_dict() for p in processes]
+
+    async def _get_clipboard(self, action: Action) -> str:
+        result = await asyncio.to_thread(self.clipboard_manager.get_text)
+        return result.text if result.success else f"❌ {result.message}"
+
+    async def _set_clipboard(self, action: Action) -> str:
+        text = str(action.parameters.get("text", ""))
+        result = await asyncio.to_thread(self.clipboard_manager.set_text, text)
+        return result.message if result.success else f"❌ {result.message}"
+
+    async def _paste_clipboard(self, action: Action) -> str:
+        if self.screen_tool:
+            return await asyncio.to_thread(self.screen_tool.press_key, "v", True, False, False)
+        if self.screen_control:
+            success = await asyncio.to_thread(self.screen_control.press_key, "v", ["ctrl"])
+            return "✓ Pasted clipboard" if success else "❌ Failed to paste clipboard"
+        return "❌ Paste unavailable: screen tools are not initialized"
 
     async def _list_files(self, action: Action) -> str:
         directory = str(action.parameters.get("directory", "."))
@@ -193,6 +225,10 @@ class ActionExecutor:
             return "JARVIS status collected"
         if action.type == ActionType.LIST_PLUGINS:
             return f"Found {len(output)} plugin(s)"
+        if action.type == ActionType.LIST_WINDOWS:
+            return f"Found {len(output)} window(s)"
+        if action.type == ActionType.LIST_PROCESSES:
+            return f"Found {len(output)} process(es)"
         if isinstance(output, str):
             return output
         return f"Completed {action.type.value}"
