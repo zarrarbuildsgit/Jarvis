@@ -24,3 +24,48 @@
 16:05:41 | WARNING  | backend.agent.crew:_build_crew:101 | CrewAI unavailable; using local deterministic planner: %s
 16:05:41 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
 16:05:41 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
+16:39:01 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:40:14 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:40:17 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:40:17 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:40:18 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:40:18 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:40:18 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:40:18 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:40:18 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:40:20 | INFO     | backend.screen.control:_initialize_libraries:28 | pywinauto initialized
+16:40:20 | INFO     | backend.screen.control:_initialize_libraries:36 | uiautomation initialized
+16:40:20 | INFO     | backend.screen.control:_initialize_libraries:45 | PyDirectInput initialized
+16:40:20 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:20 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:40:28 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
+16:40:28 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
+16:40:28 | INFO     | __main__:interactive_mode:111 | User requested shutdown
+16:43:16 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:43:20 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:43:20 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:43:20 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:43:20 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:43:20 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:43:20 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:43:20 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:43:21 | INFO     | backend.screen.control:_initialize_libraries:28 | pywinauto initialized
+16:43:21 | INFO     | backend.screen.control:_initialize_libraries:36 | uiautomation initialized
+16:43:21 | INFO     | backend.screen.control:_initialize_libraries:45 | PyDirectInput initialized
+16:43:21 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:43:21 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:44:09 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
+16:44:09 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
+16:44:09 | INFO     | __main__:interactive_mode:111 | User requested shutdown

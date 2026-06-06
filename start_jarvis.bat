@@ -1,4 +1,8 @@
 @echo off
+REM Use UTF-8 so rich/emoji output does not crash on the legacy Windows console
+chcp 65001 >nul
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
 echo ========================================
 echo    J.A.R.V.I.S. - Starting System
 echo ========================================
