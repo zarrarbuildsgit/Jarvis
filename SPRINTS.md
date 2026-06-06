@@ -232,6 +232,8 @@ Support async tasks, delayed tasks, recurring jobs, and task history.
 
 # Sprint 8 — Dashboard Control Center
 
+**Status: Implemented in local Sprint 8 commit.**
+
 ## Goal
 Make the dashboard operational, not just visual.
 
@@ -251,9 +253,9 @@ Make the dashboard operational, not just visual.
 - optional frontend components under `frontend/src/lib/`
 
 ## Acceptance Criteria
-- User can approve/deny risky actions in UI.
-- Dashboard shows real plugin/task/status data.
-- WebSocket updates work.
+- User can approve/deny risky actions in UI. ✅
+- Dashboard shows real plugin/task/status data. ✅
+- WebSocket updates work. ✅
 
 ---
 
@@ -401,4 +403,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1, 2, 3, 4, 5, 6, and 7 are implemented. Next recommended sprint: **Sprint 8 — Dashboard Control Center**. The backend now has persistent tasks, schedules, approvals, plugins, config, and resources, so the dashboard can become a real control center instead of a static UI.
+Sprints 1 through 8 are implemented. Next recommended sprint: **Sprint 9 — Voice Conversation Upgrade**. The dashboard now exposes tasks, schedules, approvals, plugins, config, resources, trust, audit logs, and websocket updates, so voice can safely plug into the same runtime/control surfaces.

@@ -1,202 +1,113 @@
-<!-- JARVIS Dashboard - SvelteKit -->
+<!-- JARVIS Dashboard - SvelteKit source version of the Control Center -->
 <script>
   import { onMount, onDestroy } from 'svelte';
-  
-  let ws = null;
-  let agentStatus = 'offline';
-  let messages = [];
-  let inputText = '';
+
+  const API = 'http://127.0.0.1:8000';
+  let active = 'overview';
+  let ws;
+  let health = {};
+  let status = {};
+  let resources = null;
   let tasks = [];
-  let screenPreview = '';
-  let currentAction = '';
-  let trustLevel = 1;
+  let schedules = [];
+  let approvals = [];
+  let plugins = [];
+  let profiles = [];
+  let config = null;
+  let audit = [];
+  let history = [];
+  let trust = {};
+  let messages = [];
+  let command = '';
+  let scheduleCommand = '';
+  let scheduleType = 'delay';
+  let scheduleValue = '60';
+  let error = '';
 
-  onMount(() => {
-    connectWebSocket();
-    fetchInitialData();
-  });
+  async function api(path, options = {}) {
+    const r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
 
-  function connectWebSocket() {
+  async function refreshAll() {
+    error = '';
+    await Promise.allSettled([
+      api('/api/health').then(d => health = d),
+      api('/api/status').then(d => status = d.status || {}),
+      api('/api/resources').then(d => resources = d),
+      api('/api/tasks').then(d => tasks = d.tasks || []),
+      api('/api/schedules').then(d => schedules = d.schedules || []),
+      api('/api/approvals?status=pending').then(d => approvals = d.approvals || []),
+      api('/api/plugins').then(d => plugins = d.plugins || []),
+      api('/api/config/profiles').then(d => profiles = d.profiles || []),
+      api('/api/config').then(d => config = d.config),
+      api('/api/audit?limit=50').then(d => audit = d.events || []),
+      api('/api/tasks/history?limit=50').then(d => history = d.events || []),
+      api('/api/trust').then(d => trust = d.trust || {}).catch(() => trust = {})
+    ]);
+  }
+
+  function connectWs() {
     ws = new WebSocket(`ws://${window.location.hostname}:8000/ws/client`);
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'register_dashboard' }));
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'register_dashboard' }));
+    ws.onmessage = e => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'agent_thought') messages = [...messages, { type: 'thought', text: data.text }];
+      if (data.type === 'agent_result') messages = [...messages, { type: 'result', text: data.text }];
+      if (['task_update','task_created','task_cancelled','approval_resolved','schedule_created','schedule_cancelled','status_update'].includes(data.type)) refreshAll();
     };
-    ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
-    ws.onclose = () => {
-      agentStatus = 'offline';
-      setTimeout(connectWebSocket, 3000);
-    };
+    ws.onclose = () => setTimeout(connectWs, 3000);
   }
 
-  function handleMessage(data) {
-    switch (data.type) {
-      case 'agent_connected':
-        agentStatus = data.status;
-        break;
-      case 'agent_thought':
-        messages.push({ type: 'thought', text: data.text, time: new Date().toLocaleTimeString() });
-        currentAction = data.text;
-        break;
-      case 'agent_result':
-        messages.push({ type: 'result', text: data.text, time: new Date().toLocaleTimeString() });
-        currentAction = '';
-        break;
-      case 'task_update':
-        const idx = tasks.findIndex(t => t.id === data.taskId);
-        if (idx >= 0) tasks[idx] = { ...tasks[idx], ...data };
-        else tasks.push(data);
-        break;
-    }
-    setTimeout(() => {
-      const c = document.getElementById('msg-container');
-      if (c) c.scrollTop = c.scrollHeight;
-    }, 50);
+  async function sendCommand() {
+    if (!command.trim()) return;
+    messages = [...messages, { type: 'user', text: command }];
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'user_command', command }));
+    else await queueTask(command);
+    command = '';
+  }
+  async function queueTask(cmd = command) { await api('/api/agent/command', { method: 'POST', body: JSON.stringify({ command: cmd }) }); command = ''; refreshAll(); }
+  async function taskAction(id, action) { await api(`/api/tasks/${id}${action === 'cancel' ? '' : '/' + action}`, { method: action === 'cancel' ? 'DELETE' : 'POST' }); refreshAll(); }
+  async function approval(id, action) { await api(`/api/approvals/${id}/${action}`, { method: 'POST', body: JSON.stringify({ resolved_by: 'dashboard' }) }); refreshAll(); }
+  async function enqueueDue() { await api('/api/schedules/enqueue-due', { method: 'POST' }); refreshAll(); }
+  async function cancelSchedule(id) { await api(`/api/schedules/${id}`, { method: 'DELETE' }); refreshAll(); }
+  async function createSchedule() {
+    const body = { command: scheduleCommand, schedule_type: scheduleType, priority: 'normal' };
+    if (scheduleType === 'delay') body.delay_seconds = Number(scheduleValue || 0);
+    if (scheduleType === 'interval') body.interval_seconds = Number(scheduleValue || 60);
+    if (scheduleType === 'daily') body.daily_time = scheduleValue;
+    if (scheduleType === 'once') body.run_at = scheduleValue;
+    await api('/api/schedules', { method: 'POST', body: JSON.stringify(body) });
+    scheduleCommand = ''; refreshAll();
   }
 
-  function sendCommand() {
-    if (!inputText.trim() || !ws) return;
-    messages.push({ type: 'user', text: inputText, time: new Date().toLocaleTimeString() });
-    ws.send(JSON.stringify({ type: 'user_command', command: inputText }));
-    inputText = '';
-  }
-
-  async function createTask() {
-    if (!inputText.trim()) return;
-    const r = await fetch('http://localhost:8000/api/agent/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: inputText })
-    });
-    if (r.ok) {
-      const task = await r.json();
-      tasks.push(task);
-      inputText = '';
-    }
-  }
-
-  async function fetchInitialData() {
-    try {
-      const r = await fetch('http://localhost:8000/api/health');
-      const d = await r.json();
-      agentStatus = d.agent;
-    } catch (e) { console.error(e); }
-  }
-
+  onMount(() => { connectWs(); refreshAll(); const t = setInterval(refreshAll, 10000); return () => clearInterval(t); });
   onDestroy(() => ws?.close());
-
-  function trustColor(l) {
-    return {1:'text-red-400',2:'text-yellow-400',3:'text-blue-400',4:'text-green-400'}[l]||'text-gray-400';
-  }
-  function trustLabel(l) {
-    return {1:'New (Read-only)',2:'Proven (Basic)',3:'Trusted (System)',4:'Full Access'}[l]||'Unknown';
-  }
 </script>
 
-<div class="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
-  <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="text-2xl">🤖</div>
-      <div>
-        <h1 class="text-xl font-bold text-white">J.A.R.V.I.S.</h1>
-        <p class="text-xs text-gray-400">Just A Rather Very Intelligent System</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-400">Trust:</span>
-        <span class="text-sm font-semibold {trustColor(trustLevel)}">{trustLevel} - {trustLabel(trustLevel)}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full {agentStatus==='online'?'bg-green-500':'bg-red-500'}"></div>
-        <span class="text-sm">{agentStatus==='online'?'Online':'Offline'}</span>
-      </div>
-    </div>
-  </header>
-
-  <main class="flex-1 flex overflow-hidden">
-    <div class="w-1/2 flex flex-col border-r border-gray-700">
-      <div class="flex border-b border-gray-700">
-        <button class="px-4 py-2 text-sm font-medium text-white bg-gray-700">Chat</button>
-        <button class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white">Tasks ({tasks.length})</button>
-        <button class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white">Memory</button>
-      </div>
-
-      <div id="msg-container" class="flex-1 overflow-y-auto p-4 space-y-3">
-        {#each messages as msg}
-          <div class="flex {msg.type==='user'?'justify-end':'justify-start'}">
-            <div class="max-w-[80%] rounded-lg px-4 py-2 {
-              msg.type==='user'?'bg-blue-600 text-white':
-              msg.type==='thought'?'bg-gray-700 text-yellow-300':
-              msg.type==='action'?'bg-gray-700 text-blue-300':
-              'bg-gray-700 text-green-300'
-            }">
-              <div class="text-xs opacity-70 mb-1">{msg.time}</div>
-              <div class="text-sm">{msg.text}</div>
-            </div>
-          </div>
-        {/each}
-        {#if currentAction}
-          <div class="flex justify-start">
-            <div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-700 text-blue-300 animate-pulse">
-              <div class="text-xs opacity-70 mb-1">Working...</div>
-              <div class="text-sm">{currentAction}</div>
-            </div>
-          </div>
-        {/if}
-      </div>
-
-      <div class="border-t border-gray-700 p-4">
-        <form on:submit|preventDefault={sendCommand} class="flex gap-2">
-          <input type="text" bind:value={inputText} placeholder="Type a command..."
-            class="flex-1 bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500"/>
-          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">Send</button>
-          <button type="button" on:click={createTask} class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">Task</button>
-        </form>
-      </div>
-    </div>
-
-    <div class="w-1/2 flex flex-col">
-      <div class="flex-1 bg-gray-800 m-4 rounded-lg overflow-hidden border border-gray-700">
-        <div class="bg-gray-700 px-4 py-2 text-sm font-medium">🖥️ Screen Preview</div>
-        <div class="h-full flex items-center justify-center text-gray-500">
-          {#if screenPreview}
-            <img src={screenPreview} alt="Screen preview" class="w-full h-full object-contain"/>
-          {:else}
-            <div class="text-center">
-              <div class="text-4xl mb-2">🖥️</div>
-              <p>Screen preview will appear here</p>
-              <p class="text-xs mt-1">when agent is analyzing your desktop</p>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      {#if tasks.length > 0}
-        <div class="bg-gray-800 mx-4 mb-4 rounded-lg border border-gray-700 overflow-hidden">
-          <div class="bg-gray-700 px-4 py-2 text-sm font-medium">📋 Active Tasks</div>
-          <div class="p-4 space-y-2">
-            {#each tasks as task}
-              <div class="flex items-center gap-3">
-                <div class="flex-1">
-                  <div class="text-sm">{task.command}</div>
-                  <div class="w-full bg-gray-700 rounded-full h-1.5 mt-1">
-                    <div class="bg-blue-500 h-1.5 rounded-full" style="width: {task.progress || 0}%"></div>
-                  </div>
-                </div>
-                <span class="text-xs px-2 py-1 rounded bg-gray-700 {
-                  task.status==='completed'?'text-green-400':
-                  task.status==='failed'?'text-red-400':
-                  'text-yellow-400'
-                }">{task.status}</span>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
-    </div>
+<div class="shell">
+  <aside>
+    <h1>🤖 JARVIS</h1><p>Control Center</p>
+    {#each ['overview','tasks','schedules','approvals','plugins','config','logs'] as tab}
+      <button class:active={active === tab} on:click={() => active = tab}>{tab}</button>
+    {/each}
+  </aside>
+  <main>
+    <header><b>Agent:</b> {health.agent || 'offline'} <b>Profile:</b> {resources?.profile || config?.system?.profile || '?'} <button on:click={refreshAll}>Refresh</button></header>
+    {#if error}<div class="error">{error}</div>{/if}
+    {#if active === 'overview'}
+      <div class="grid"><section><h2>Health</h2><pre>{JSON.stringify(health,null,2)}</pre></section><section><h2>Resources</h2><pre>{JSON.stringify(resources,null,2)}</pre></section><section><h2>Trust</h2><pre>{JSON.stringify(trust,null,2)}</pre></section></div>
+      <section><h2>Chat</h2><div class="row"><input bind:value={command} placeholder="Command"><button on:click={sendCommand}>Send</button><button on:click={() => queueTask()}>Queue</button></div>{#each messages as m}<div class="msg {m.type}"><b>{m.type}</b> {m.text}</div>{/each}</section>
+    {/if}
+    {#if active === 'tasks'}<section><h2>Tasks</h2>{#each tasks as t}<div class="card"><b>{t.id}</b> {t.status}<p>{t.command}</p><button on:click={() => taskAction(t.id,'pause')}>Pause</button><button on:click={() => taskAction(t.id,'resume')}>Resume</button><button on:click={() => taskAction(t.id,'cancel')}>Cancel</button></div>{/each}</section>{/if}
+    {#if active === 'schedules'}<section><h2>Schedules</h2><div class="row"><input bind:value={scheduleCommand} placeholder="Command"><select bind:value={scheduleType}><option>delay</option><option>interval</option><option>daily</option><option>once</option></select><input bind:value={scheduleValue}><button on:click={createSchedule}>Create</button><button on:click={enqueueDue}>Enqueue Due</button></div>{#each schedules as s}<div class="card"><b>{s.id}</b> {s.schedule_type} {s.enabled ? 'enabled':'disabled'}<p>{s.command}</p><button on:click={() => cancelSchedule(s.id)}>Cancel</button></div>{/each}</section>{/if}
+    {#if active === 'approvals'}<section><h2>Approvals</h2>{#each approvals as a}<div class="card"><b>{a.id}</b><p>{a.command}</p><p>{a.decision.reason}</p><button on:click={() => approval(a.id,'approve')}>Approve</button><button on:click={() => approval(a.id,'deny')}>Deny</button></div>{/each}</section>{/if}
+    {#if active === 'plugins'}<section><h2>Plugins</h2><div class="grid">{#each plugins as p}<div class="card"><h3>{p.name}</h3><p>{p.description}</p><small>{(p.examples||[]).join(' • ')}</small></div>{/each}</div></section>{/if}
+    {#if active === 'config'}<section><h2>Profiles</h2>{profiles.join(', ')}<pre>{JSON.stringify(config,null,2)}</pre></section>{/if}
+    {#if active === 'logs'}<section><h2>Audit</h2>{#each audit as e}<div class="card"><b>{e.event_type}</b> {e.message}</div>{/each}<h2>Task History</h2>{#each history as h}<div class="card"><b>{h.event_type}</b> {h.message}</div>{/each}</section>{/if}
   </main>
 </div>
-
 <style>
-  :global(body) { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  :global(body){margin:0;background:#0b1020;color:#e5e7eb;font-family:Segoe UI,system-ui,sans-serif}.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}aside{background:#111827;padding:18px;border-right:1px solid #253047}aside button{display:block;width:100%;margin:7px 0;padding:10px;border-radius:10px;border:1px solid transparent;background:transparent;color:#9ca3af;text-align:left}aside button.active,aside button:hover{background:#172033;color:white;border-color:#253047}main{padding:18px}header,section,.card{background:#111827;border:1px solid #253047;border-radius:14px;padding:14px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.row{display:flex;gap:8px}input,select{background:#0f172a;color:white;border:1px solid #253047;border-radius:9px;padding:9px;flex:1}button{background:#2563eb;color:white;border:0;border-radius:9px;padding:9px 11px}pre{white-space:pre-wrap;overflow:auto}.msg{padding:8px;margin:6px 0;border-radius:9px;background:#0f172a}.user{background:#1d4ed8}.thought{background:#422006}.result{background:#14532d}.error{background:#7f1d1d;padding:10px;border-radius:10px}
 </style>

@@ -38,6 +38,10 @@ class ScheduleRequest(BaseModel):
     daily_time: Optional[str] = None
     priority: Optional[str] = "normal"
 
+class TrustLevelRequest(BaseModel):
+    level: int
+    reason: Optional[str] = "dashboard"
+
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -174,6 +178,37 @@ async def plugins():
         return {"plugins": pm.describe()}
     except Exception as exc:
         raise HTTPException(500, str(exc))
+
+@app.get("/api/trust")
+async def trust_summary():
+    try:
+        from backend.security.trust import TrustManager
+        return {"trust": TrustManager().get_trust_summary()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/trust/level")
+async def set_trust_level(req: TrustLevelRequest):
+    try:
+        from backend.security.trust import TrustManager
+        trust = TrustManager()
+        ok = trust.set_level(req.level, req.reason or "dashboard")
+        if not ok:
+            raise HTTPException(400, "Could not set trust level")
+        await manager.broadcast({"type": "trust_update", "trust": trust.get_trust_summary()})
+        return {"trust": trust.get_trust_summary()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/memory/stats")
+async def memory_stats():
+    try:
+        from backend.memory.chroma_memory import MemoryManager
+        return MemoryManager().get_stats()
+    except Exception as exc:
+        raise HTTPException(503, f"Memory unavailable: {exc}")
 
 @app.get("/api/approvals")
 async def list_approvals(status: Optional[str] = None):

@@ -107,6 +107,7 @@ uv run python scripts/smoke_sprint4.py
 uv run python scripts/smoke_sprint5.py
 uv run python scripts/smoke_sprint6.py
 uv run python scripts/smoke_sprint7.py
+uv run python scripts/smoke_sprint8.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -220,5 +221,31 @@ DELETE /api/schedules/{schedule_id}
 ```
 
 The headless agent now sends a `running` update before processing queued tasks, and websocket task updates are mirrored back into the persistent queue.
+
+## Sprint 8 Dashboard Control Center
+
+The local dashboard is now operational through `ui-server/public/index.html` and the Svelte source dashboard in `frontend/src/routes/+page.svelte`.
+
+Dashboard panels:
+
+- Overview health/resources/trust
+- Chat + quick command sender
+- Persistent task queue controls
+- Schedule creation/cancellation/enqueue-due
+- Pending approvals with approve/deny buttons
+- Plugin browser with permissions/examples
+- Config profile viewer
+- Memory/voice/status panel
+- Audit log and task history
+
+New/expanded backend endpoints:
+
+```text
+GET  /api/trust
+POST /api/trust/level
+GET  /api/memory/stats
+```
+
+The Express UI server now serves the standalone dashboard from `ui-server/public/` and falls back to `index.html` for local navigation.
 
 
