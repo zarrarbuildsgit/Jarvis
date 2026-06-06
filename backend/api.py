@@ -214,6 +214,32 @@ async def memory_stats():
     except Exception as exc:
         raise HTTPException(503, f"Memory unavailable: {exc}")
 
+@app.get("/api/memory/preferences")
+async def memory_preferences(category: Optional[str] = None):
+    try:
+        from backend.memory.preferences import PreferenceStore
+        return {"preferences": [p.to_dict() for p in PreferenceStore().list(category)]}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/memory/preferences/ingest")
+async def ingest_memory_preferences(payload: dict):
+    try:
+        from backend.memory.preferences import PreferenceStore
+        text = str(payload.get("text", ""))
+        source = str(payload.get("source", "api"))
+        return {"preferences": [p.to_dict() for p in PreferenceStore().ingest_text(text, source)]}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/memory/context")
+async def memory_context(query: str, n_results: int = 5):
+    try:
+        from backend.memory.retriever import MemoryRetriever
+        return MemoryRetriever().retrieve(query, max(1, min(n_results, 20)))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.get("/api/approvals")
 async def list_approvals(status: Optional[str] = None):
     try:

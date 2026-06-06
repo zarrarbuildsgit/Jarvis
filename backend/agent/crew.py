@@ -13,6 +13,7 @@ from backend.agent.debate import DebateConfig, MultiAgentDebate
 from backend.agent.executor import ActionExecutor
 from backend.agent.observation import ObservationBuilder
 from backend.agent.runtime import ActionRuntime
+from backend.memory.retriever import MemoryRetriever
 from backend.plugins.manager import PluginManager
 
 
@@ -35,6 +36,7 @@ class JARVIS_Crew:
             optimization_profile=config.hardware.optimization_profile if config else None,
         )
         self.trust = TrustManager()
+        self.memory_retriever = MemoryRetriever(self.memory)
         self.plugin_manager = PluginManager(plugin_dirs or ["plugins", "data/plugins"])
         self.plugin_manager.discover()
         self.debate = MultiAgentDebate(DebateConfig(enabled=enable_debate))
@@ -103,10 +105,14 @@ class JARVIS_Crew:
         trust_level = trust_manager.get_current_level()
         required = self._assess_command_trust(command)
 
+        extracted_preferences = self.memory_retriever.ingest_text_for_preferences(command, source="command")
+        memory_context = self.memory_retriever.build_context(command, n_results=5)
+
         self.memory.add_episodic(
             action=f"User command: {command}",
             outcome="Processing started",
             context="interactive/api/voice",
+            metadata={"extracted_preferences_count": len(extracted_preferences), "memory_context_available": bool(memory_context)},
         )
 
         if required > trust_level:
@@ -139,7 +145,8 @@ class JARVIS_Crew:
                 )
                 return runtime_result.message
 
-            result = await self._run_crew_or_fallback(command)
+            command_for_ai = f"{command}\n\n{memory_context}" if memory_context else command
+            result = await self._run_crew_or_fallback(command_for_ai)
             success = not str(result).startswith("❌")
             trust_manager.record_action(command, str(result), success)
             trust_manager.evaluate_trust()
@@ -218,5 +225,6 @@ class JARVIS_Crew:
             "plugins": self.plugin_manager.list_plugins(),
             "debate_enabled": self.debate.config.enabled,
             "action_runtime": "enabled",
+            "memory_intelligence": "enabled",
             "profile": self.config.system.profile if self.config else "unknown",
         }

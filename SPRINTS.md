@@ -289,6 +289,8 @@ Make JARVIS feel conversational and interruptible.
 
 # Sprint 10 — Memory Intelligence
 
+**Status: Implemented in local Sprint 10 commit.**
+
 ## Goal
 Make memory useful, ranked, and personalized.
 
@@ -306,9 +308,9 @@ Make memory useful, ranked, and personalized.
 - `backend/memory/summarizer.py`
 
 ## Acceptance Criteria
-- Memories have importance/confidence metadata.
-- User preferences can be stored and retrieved.
-- Agent runtime can query relevant memories before planning.
+- Memories have importance/confidence metadata. ✅
+- User preferences can be stored and retrieved. ✅
+- Agent runtime can query relevant memories before planning. ✅
 
 ---
 
@@ -405,4 +407,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 through 9 are implemented. Next recommended sprint: **Sprint 10 — Memory Intelligence**. Voice now has conversation sessions, follow-up context, interruption commands, and playback state, so memory can start learning preferences and important facts from these interactions.
+Sprints 1 through 10 are implemented. Next recommended sprint: **Sprint 11 — Skill Learning / Macros**. Memory now ranks, summarizes, and stores user preferences, so reusable learned workflows can use personalized context.

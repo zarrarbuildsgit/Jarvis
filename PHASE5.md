@@ -109,6 +109,7 @@ uv run python scripts/smoke_sprint6.py
 uv run python scripts/smoke_sprint7.py
 uv run python scripts/smoke_sprint8.py
 uv run python scripts/smoke_sprint9.py
+uv run python scripts/smoke_sprint10.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -272,5 +273,24 @@ voice status
 ```
 
 Wake word starts a timed session. Follow-up commands inside the idle window are enriched with recent conversation context, so the agent can understand short follow-ups better. Playback can be stopped for barge-in style interruptions where supported by `sounddevice`.
+
+## Sprint 10 Memory Intelligence
+
+Memory now has deterministic ranking, preference extraction, retrieval context, and summarization:
+
+- `backend/memory/scoring.py` — importance, recency, frequency, confidence, preference, and relevance scoring
+- `backend/memory/preferences.py` — explicit user preference extraction and JSON-backed storage
+- `backend/memory/retriever.py` — ranks Chroma-style memories and combines them with preference context
+- `backend/memory/summarizer.py` — dependency-free memory/conversation summaries
+
+New memory API endpoints:
+
+```text
+GET  /api/memory/preferences
+POST /api/memory/preferences/ingest
+GET  /api/memory/context?query=browser
+```
+
+`MemoryManager.add_episodic()` and `add_semantic()` now enrich metadata with memory scores. `JARVIS_Crew` ingests preferences from commands and builds relevant memory context before AI fallback planning.
 
 

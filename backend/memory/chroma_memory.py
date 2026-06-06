@@ -8,7 +8,12 @@ from chromadb.config import Settings
 from datetime import datetime
 from pathlib import Path
 import json
-from loguru import logger
+try:
+    from loguru import logger
+except Exception:  # pragma: no cover
+    import logging
+    logger = logging.getLogger(__name__)
+from backend.memory.scoring import MemoryScorer
 
 class MemoryManager:
     def __init__(self, persist_directory: str = "data/memory"):
@@ -29,6 +34,7 @@ class MemoryManager:
             metadata={"hnsw:space": "cosine"}
         )
         
+        self.scorer = MemoryScorer()
         logger.info("MemoryManager initialized with ChromaDB")
     
     def add_episodic(self, action: str, outcome: str, context: str = "", metadata: dict = None):
@@ -39,7 +45,7 @@ class MemoryManager:
             "outcome": outcome,
             "context": context,
             "timestamp": datetime.now().isoformat(),
-            **(metadata or {})
+            **self.scorer.enrich_metadata(f"{action} {outcome} {context}", metadata or {})
         }
         
         doc_id = f"epi_{datetime.now().timestamp()}_{hash(action) % 10000}"
@@ -57,7 +63,7 @@ class MemoryManager:
             "fact": fact,
             "category": category,
             "timestamp": datetime.now().isoformat(),
-            **(metadata or {})
+            **self.scorer.enrich_metadata(fact, metadata or {})
         }
         
         doc_id = f"sem_{datetime.now().timestamp()}_{hash(fact) % 10000}"
