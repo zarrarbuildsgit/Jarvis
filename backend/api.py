@@ -25,6 +25,10 @@ class CommandRequest(BaseModel):
     command: str
     priority: Optional[str] = "normal"
 
+class ApprovalResolution(BaseModel):
+    resolved_by: Optional[str] = "user"
+    note: Optional[str] = ""
+
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -97,6 +101,49 @@ async def plugins():
         pm = PluginManager(["plugins", "data/plugins"])
         pm.discover()
         return {"plugins": pm.describe()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/approvals")
+async def list_approvals(status: Optional[str] = None):
+    try:
+        from backend.security.approval import ApprovalManager
+        return {"approvals": [a.to_dict() for a in ApprovalManager().list(status)]}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/approvals/{approval_id}/approve")
+async def approve_action(approval_id: str, req: ApprovalResolution):
+    try:
+        from backend.security.approval import ApprovalManager
+        approval = ApprovalManager().approve(approval_id, req.resolved_by or "user", req.note or "")
+        await manager.broadcast({"type": "approval_resolved", "approval": approval.to_dict()})
+        return {"approval": approval.to_dict()}
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/approvals/{approval_id}/deny")
+async def deny_action(approval_id: str, req: ApprovalResolution):
+    try:
+        from backend.security.approval import ApprovalManager
+        approval = ApprovalManager().deny(approval_id, req.resolved_by or "user", req.note or "")
+        await manager.broadcast({"type": "approval_resolved", "approval": approval.to_dict()})
+        return {"approval": approval.to_dict()}
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/audit")
+async def audit_tail(limit: int = 100):
+    try:
+        from backend.security.audit_log import AuditLogger
+        limit = max(1, min(limit, 500))
+        return {"events": AuditLogger().tail(limit)}
     except Exception as exc:
         raise HTTPException(500, str(exc))
 

@@ -79,3 +79,28 @@ The vision router now detects 4GB-class NVIDIA GPUs and:
 ## Multi-agent debate
 
 High-impact commands such as install/delete/credential/send are passed through a debate gate before execution. If risk is high and trust is insufficient, JARVIS returns a warning and recommended plan instead of proceeding.
+
+## Sprint 2 Safety Gate
+
+The action runtime now checks every structured action through `backend/security/policy.py` before execution.
+
+Safety data is stored locally under `data/security/`:
+
+- `approvals.json` — pending/resolved approval requests
+- `audit.jsonl` — append-only action/policy audit events
+
+API endpoints:
+
+```text
+GET  /api/approvals
+POST /api/approvals/{approval_id}/approve
+POST /api/approvals/{approval_id}/deny
+GET  /api/audit?limit=100
+```
+
+Smoke check:
+
+```powershell
+uv run python scripts/smoke_sprint2.py
+```
+

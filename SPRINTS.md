@@ -58,6 +58,8 @@ Turn JARVIS from a planning skeleton into an assistant that can convert commands
 
 # Sprint 2 — Safety Policy + Approval System
 
+**Status: Implemented in local Sprint 2 commit.**
+
 ## Goal
 Make trust levels enforceable at the action level, not just command text level.
 
@@ -75,10 +77,10 @@ Make trust levels enforceable at the action level, not just command text level.
 - `backend/security/rules.yaml`
 
 ## Acceptance Criteria
-- Every action receives a safety decision.
-- Dangerous actions are blocked or require confirmation.
-- Audit log records all executed/blocked actions.
-- Delete/install/send/credential actions are guarded.
+- Every action receives a safety decision. ✅
+- Dangerous actions are blocked or require confirmation. ✅
+- Audit log records all executed/blocked actions. ✅
+- Delete/install/send/credential actions are guarded. ✅
 
 ---
 
@@ -389,4 +391,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprint 1 is implemented. Next recommended sprint: **Sprint 2 — Safety Policy + Approval System**. Do not begin dashboard, skills, or advanced voice work until the policy/approval layer is connected to the action runtime, because every future subsystem should execute through the same safety gate.
+Sprints 1 and 2 are implemented. Next recommended sprint: **Sprint 3 — Windows Automation Layer**. Do not begin dashboard, skills, or advanced voice work until the Windows automation layer exists, because reliable app/window/clipboard control should be the main executor path before vision/coordinate fallback.

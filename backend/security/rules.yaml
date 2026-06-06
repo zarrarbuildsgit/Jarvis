@@ -1,0 +1,32 @@
+# JARVIS action-level safety rules.
+# These supplement the built-in conservative defaults in backend/security/policy.py.
+
+blocked_command_patterns:
+  - "\\brm\\s+-rf\\s+--no-preserve-root\\b"
+  - "\\bremove-item\\b.*\\b-recurse\\b.*\\b-force\\b.*(?:c:|/|\\\\windows)"
+  - "\\bformat-volume\\b"
+  - "\\bclear-disk\\b"
+  - "\\bdisable-bitlocker\\b"
+  - "\\breg\\s+add\\b.*\\b(run|runonce)\\b"
+
+approval_command_patterns:
+  - "\\bremove-item\\b"
+  - "\\bcopy-item\\b.*\\b(system32|program files)\\b"
+  - "\\bmove-item\\b.*\\b(system32|program files)\\b"
+  - "\\bnew-localuser\\b"
+  - "\\badd-localgroupmember\\b"
+  - "\\bset-service\\b"
+  - "\\bstart-service\\b"
+  - "\\bstop-service\\b"
+  - "\\bdocker\\s+(run|compose|system prune)\\b"
+  - "\\bgit\\s+push\\b"
+
+sensitive_terms:
+  - password
+  - passphrase
+  - token
+  - api key
+  - secret
+  - credential
+  - private key
+  - ssh key

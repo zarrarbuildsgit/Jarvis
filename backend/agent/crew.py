@@ -35,6 +35,7 @@ class JARVIS_Crew:
         self.plugin_manager.discover()
         self.debate = MultiAgentDebate(DebateConfig(enabled=enable_debate))
         self.runtime = ActionRuntime(
+            trust_level_getter=self.trust.get_current_level,
             executor=ActionExecutor(
                 trust_level_getter=self.trust.get_current_level,
                 screen_control=self.screen_control,

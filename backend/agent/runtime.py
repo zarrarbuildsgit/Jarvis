@@ -15,10 +15,13 @@ from backend.agent.action_schema import ActionPlan, RuntimeResult
 from backend.agent.executor import ActionExecutor
 from backend.agent.observation import ObservationBuilder
 from backend.agent.planner import DeterministicPlanner
+from backend.security.approval import ApprovalManager
+from backend.security.audit_log import AuditLogger
+from backend.security.policy import PolicyDecisionType, PolicyEngine
 
 
 class ActionRuntime:
-    """Plan and execute deterministic actions."""
+    """Plan, policy-check, and execute deterministic actions."""
 
     def __init__(
         self,
@@ -26,11 +29,19 @@ class ActionRuntime:
         planner: Optional[DeterministicPlanner] = None,
         executor: Optional[ActionExecutor] = None,
         observation_builder: Optional[ObservationBuilder] = None,
+        policy_engine: Optional[PolicyEngine] = None,
+        approval_manager: Optional[ApprovalManager] = None,
+        audit_logger: Optional[AuditLogger] = None,
+        trust_level_getter=None,
         min_confidence: float = 0.75,
     ):
         self.planner = planner or DeterministicPlanner()
         self.executor = executor
         self.observation_builder = observation_builder
+        self.policy_engine = policy_engine or PolicyEngine()
+        self.approval_manager = approval_manager or ApprovalManager()
+        self.audit_logger = audit_logger or AuditLogger()
+        self.trust_level_getter = trust_level_getter or (lambda: 1)
         self.min_confidence = min_confidence
 
     def plan(self, command: str) -> ActionPlan:
@@ -60,7 +71,58 @@ class ActionRuntime:
             )
 
         logger.info("Runtime executing plan %s with %s action(s): %s", plan.id, len(plan.actions), plan.summary)
-        results = await self.executor.execute_plan(plan.actions)
+
+        trust_level = int(context.get("trust_level", self.trust_level_getter()))
+        approved_action_ids = set(context.get("approved_action_ids", []) or [])
+        policy_decisions = []
+        results = []
+
+        for action in plan.actions:
+            decision = self.policy_engine.evaluate(action, trust_level=trust_level, context=context)
+            policy_decisions.append(decision)
+            self.audit_logger.record_policy(decision, action, command)
+
+            if decision.blocked:
+                message = f"🛑 Blocked by safety policy: {decision.reason}"
+                self.audit_logger.record("action_blocked", message, {"command": command, "action": action.to_dict(), "decision": decision.to_dict()})
+                return RuntimeResult(
+                    command=command,
+                    handled=True,
+                    success=False,
+                    message=message,
+                    plan=plan,
+                    results=results,
+                    metadata={**context, "policy_decisions": [d.to_dict() for d in policy_decisions]},
+                )
+
+            if decision.needs_approval and action.id not in approved_action_ids:
+                approval = self.approval_manager.create(action, decision, command=command)
+                message = f"⚠️ Approval required ({approval.id}): {decision.reason}"
+                self.audit_logger.record(
+                    "approval_requested",
+                    message,
+                    {"command": command, "approval": approval.to_dict(), "action": action.to_dict(), "decision": decision.to_dict()},
+                )
+                return RuntimeResult(
+                    command=command,
+                    handled=True,
+                    success=False,
+                    message=message,
+                    plan=plan,
+                    results=results,
+                    metadata={
+                        **context,
+                        "approval_id": approval.id,
+                        "policy_decisions": [d.to_dict() for d in policy_decisions],
+                    },
+                )
+
+            result = await self.executor.execute(action)
+            results.append(result)
+            self.audit_logger.record_action_result(result, action, command)
+            if not result.success:
+                break
+
         success = bool(results) and all(r.success for r in results)
         message = self._summarize(plan, results, success)
         return RuntimeResult(
@@ -70,7 +132,7 @@ class ActionRuntime:
             message=message,
             plan=plan,
             results=results,
-            metadata=context,
+            metadata={**context, "policy_decisions": [d.to_dict() for d in policy_decisions]},
         )
 
     def _summarize(self, plan: ActionPlan, results, success: bool) -> str:
