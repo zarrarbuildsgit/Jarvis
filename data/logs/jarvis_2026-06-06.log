@@ -1,0 +1,26 @@
+15:59:40 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:02:39 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:04:12 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:04:47 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:05:29 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:05:41 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:05:41 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:05:41 | ERROR    | backend.screen.capture:_initialize_backend:35 | All screen capture backends failed: No module named 'mss'
+16:05:41 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:05:41 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:05:41 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:05:41 | ERROR    | backend.screen.capture:_initialize_backend:35 | All screen capture backends failed: No module named 'mss'
+16:05:41 | WARNING  | backend.screen.control:_initialize_libraries:30 | pywinauto failed: No module named 'pywinauto'
+16:05:41 | WARNING  | backend.screen.control:_initialize_libraries:38 | uiautomation failed: No module named 'uiautomation'
+16:05:41 | WARNING  | backend.screen.control:_initialize_libraries:47 | PyDirectInput failed: No module named 'pydirectinput'
+16:05:41 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:05:41 | WARNING  | backend.agent.crew:_build_crew:101 | CrewAI unavailable; using local deterministic planner: %s
+16:05:41 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
+16:05:41 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
