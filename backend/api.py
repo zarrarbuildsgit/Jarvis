@@ -42,6 +42,13 @@ class TrustLevelRequest(BaseModel):
     level: int
     reason: Optional[str] = "dashboard"
 
+class SkillCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    commands: List[str]
+    trigger_phrases: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -176,6 +183,64 @@ async def plugins():
         pm = PluginManager(["plugins", "data/plugins"])
         pm.discover()
         return {"plugins": pm.describe()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills")
+async def list_skills(status: Optional[str] = None):
+    try:
+        from backend.skills import SkillManager
+        return {"skills": [s.to_dict() for s in SkillManager().list(status)]}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills")
+async def create_skill(req: SkillCreateRequest):
+    try:
+        from backend.skills import SkillManager
+        skill = SkillManager().create_from_commands(
+            req.name,
+            req.commands,
+            description=req.description or "",
+            trigger_phrases=req.trigger_phrases or [req.name],
+            tags=req.tags or [],
+        )
+        await manager.broadcast({"type": "skill_created", "skill": skill.to_dict()})
+        return {"skill": skill.to_dict()}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/{skill_id}/run")
+async def run_skill_as_task(skill_id: str):
+    try:
+        from backend.skills import SkillManager
+        skill = SkillManager().get(skill_id)
+        if not skill:
+            raise HTTPException(404, "Skill not found")
+        task = task_queue.add(skill.name, priority="normal", metadata={"skill_id": skill.id})
+        await manager.send_to_agent({"type": "new_task", "task": task.to_dict()})
+        await manager.broadcast({"type": "task_created", "task": task.to_dict(), "skill": skill.to_dict()})
+        return {"task": task.to_dict(), "skill": skill.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.delete("/api/skills/{skill_id}")
+async def delete_skill(skill_id: str):
+    try:
+        from backend.skills import SkillManager
+        ok = SkillManager().delete(skill_id)
+        if not ok:
+            raise HTTPException(404, "Skill not found")
+        await manager.broadcast({"type": "skill_deleted", "skill_id": skill_id})
+        return {"deleted": True}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(500, str(exc))
 

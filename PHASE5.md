@@ -110,6 +110,7 @@ uv run python scripts/smoke_sprint7.py
 uv run python scripts/smoke_sprint8.py
 uv run python scripts/smoke_sprint9.py
 uv run python scripts/smoke_sprint10.py
+uv run python scripts/smoke_sprint11.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -292,5 +293,25 @@ GET  /api/memory/context?query=browser
 ```
 
 `MemoryManager.add_episodic()` and `add_semantic()` now enrich metadata with memory scores. `JARVIS_Crew` ingests preferences from commands and builds relevant memory context before AI fallback planning.
+
+## Sprint 11 Skill Learning / Macros
+
+JARVIS can now save and run reusable workflows as skills:
+
+- `backend/skills/skill_schema.py` — editable JSON skill/step schema based on Sprint 1 actions
+- `backend/skills/skill_manager.py` — load/save/search/create skills under `data/skills/`
+- `backend/skills/recorder.py` — record commands into reusable skills
+- `backend/skills/runner.py` — execute skill steps through Sprint 2 policy/approval gates
+
+Skill API endpoints:
+
+```text
+GET    /api/skills
+POST   /api/skills
+POST   /api/skills/{skill_id}/run
+DELETE /api/skills/{skill_id}
+```
+
+`JARVIS_Crew` checks enabled skill trigger phrases before plugin/runtime fallback. A phrase like `start coding mode` can now run a saved macro. Skill execution still goes through policy checks, so destructive skill steps are blocked or require approval.
 
 

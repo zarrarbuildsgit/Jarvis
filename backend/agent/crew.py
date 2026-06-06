@@ -15,6 +15,7 @@ from backend.agent.observation import ObservationBuilder
 from backend.agent.runtime import ActionRuntime
 from backend.memory.retriever import MemoryRetriever
 from backend.plugins.manager import PluginManager
+from backend.skills import SkillManager, SkillRunner
 
 
 class JARVIS_Crew:
@@ -52,6 +53,8 @@ class JARVIS_Crew:
             ),
             observation_builder=ObservationBuilder(self.screen_capture, self.screen_control, self.vision_router),
         )
+        self.skill_manager = SkillManager()
+        self.skill_runner = SkillRunner(self.runtime, self.skill_manager)
         self.crew = None
         self._build_crew()
         logger.info("JARVIS agents assembled: core=%s plugins=%s debate=%s", len(self.crew.agents) if self.crew else 0, len(self.plugin_manager.plugins), enable_debate)
@@ -121,6 +124,13 @@ class JARVIS_Crew:
             return msg
 
         try:
+            skill = self.skill_manager.find_match(command)
+            if skill:
+                skill_result = await self.skill_runner.run_skill(skill, context={"trust_level": trust_level})
+                trust_manager.record_action(command, skill_result.message, skill_result.success)
+                self.memory.add_episodic(command, skill_result.message, "skill", {"skill_id": skill.id, "skill_name": skill.name})
+                return skill_result.message
+
             plugin_result = await self.plugin_manager.try_handle(command, context={"trust_level": trust_level})
             if plugin_result.handled:
                 trust_manager.record_action(command, plugin_result.message, plugin_result.success)
@@ -226,5 +236,6 @@ class JARVIS_Crew:
             "debate_enabled": self.debate.config.enabled,
             "action_runtime": "enabled",
             "memory_intelligence": "enabled",
+            "skills": len(self.skill_manager.list()),
             "profile": self.config.system.profile if self.config else "unknown",
         }

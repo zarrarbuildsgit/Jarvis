@@ -316,6 +316,8 @@ Make memory useful, ranked, and personalized.
 
 # Sprint 11 — Skill Learning / Macros
 
+**Status: Implemented in local Sprint 11 commit.**
+
 ## Goal
 Allow users to teach JARVIS reusable workflows.
 
@@ -334,9 +336,9 @@ Allow users to teach JARVIS reusable workflows.
 - `backend/skills/__init__.py`
 
 ## Acceptance Criteria
-- User can save a named skill.
-- Skill can run as a sequence of actions.
-- Skills are stored as editable YAML/JSON.
+- User can save a named skill. ✅
+- Skill can run as a sequence of actions. ✅
+- Skills are stored as editable YAML/JSON. ✅
 
 ---
 
@@ -407,4 +409,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1 through 10 are implemented. Next recommended sprint: **Sprint 11 — Skill Learning / Macros**. Memory now ranks, summarizes, and stores user preferences, so reusable learned workflows can use personalized context.
+Sprints 1 through 11 are implemented. Next recommended sprint: **Sprint 12 — Browser Automation + External Integrations**. Skills/macros now exist, so browser workflows and integrations can become reusable, approved, and personalized skills.
