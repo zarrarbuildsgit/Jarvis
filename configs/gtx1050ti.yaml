@@ -1,0 +1,29 @@
+# GTX 1050 Ti / 4GB VRAM profile.
+system:
+  profile: gtx1050ti
+
+hardware:
+  gpu: cuda
+  max_vram_gb: 4
+  max_ram_gb: 16
+  threads: 4
+  optimization_profile: gtx1050ti
+  lazy_load_models: true
+
+vision:
+  models:
+    - name: smolvlm
+      enabled: true
+    - name: florence2
+      enabled: true
+    - name: qwen
+      enabled: false
+  routing:
+    fallback_order: [smolvlm, florence2]
+
+voice:
+  stt:
+    model_size: small
+
+security:
+  require_approvals: true

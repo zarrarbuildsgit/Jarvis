@@ -1,0 +1,23 @@
+# High-end GPU profile. Enables heavier reasoning models.
+system:
+  profile: high_end_gpu
+
+hardware:
+  gpu: cuda
+  max_vram_gb: 12
+  max_ram_gb: 32
+  threads: 8
+  optimization_profile: high_end_gpu
+  lazy_load_models: true
+
+vision:
+  models:
+    - name: smolvlm
+      enabled: true
+    - name: florence2
+      enabled: true
+    - name: qwen
+      enabled: true
+
+security:
+  require_approvals: true

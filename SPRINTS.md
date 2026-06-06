@@ -147,6 +147,8 @@ Add practical built-in skills using the plugin system.
 
 # Sprint 5 — Config Profiles
 
+**Status: Implemented in local Sprint 5 commit.**
+
 ## Goal
 Centralize settings and support machine-specific profiles.
 
@@ -167,9 +169,9 @@ Centralize settings and support machine-specific profiles.
 - `configs/safe_mode.yaml`
 
 ## Acceptance Criteria
-- App loads config through one path.
-- `main.py --profile gtx1050ti` works.
-- Existing `settings.yaml` remains compatible or is migrated.
+- App loads config through one path. ✅
+- `main.py --profile gtx1050ti` works. ✅
+- Existing `settings.yaml` remains compatible or is migrated. ✅
 
 ---
 
@@ -395,4 +397,4 @@ Prevent regressions and bad code quality.
 
 # Current Next Step
 
-Sprints 1, 2, 3, and 4 are implemented. Next recommended sprint: **Sprint 5 — Config Profiles**. Do not begin dashboard, skills, or advanced voice work until profile-based config exists, because GTX 1050 Ti, safe mode, and high-end GPU behavior should be centralized before more systems depend on settings.
+Sprints 1, 2, 3, 4, and 5 are implemented. Next recommended sprint: **Sprint 6 — Resource Guard + GTX 1050 Ti Hardening**. Profile-based config now exists, so the next step is connecting live CPU/RAM/GPU monitoring and model unload decisions to those profiles.

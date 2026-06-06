@@ -104,6 +104,7 @@ Smoke checks:
 uv run python scripts/smoke_sprint2.py
 uv run python scripts/smoke_sprint3.py
 uv run python scripts/smoke_sprint4.py
+uv run python scripts/smoke_sprint5.py
 ```
 
 ## Sprint 3 Windows Automation Layer
@@ -140,5 +141,33 @@ The plugin pack now includes:
 - `time` — basic local time/date plugin
 
 Plugin metadata now includes `permissions` and `examples`, surfaced by `/api/plugins`.
+
+## Sprint 5 Config Profiles
+
+JARVIS now has a profile-aware config loader:
+
+- `backend/config/schema.py` — typed dataclass schema
+- `backend/config/loader.py` — YAML merge/profile loader
+- `configs/default.yaml`
+- `configs/gtx1050ti.yaml`
+- `configs/low_ram.yaml`
+- `configs/high_end_gpu.yaml`
+- `configs/safe_mode.yaml`
+
+Run with a profile:
+
+```powershell
+uv run python main.py --phase 5 --profile gtx1050ti
+uv run python main.py --phase 5 --profile safe_mode
+```
+
+Config API endpoints:
+
+```text
+GET /api/config/profiles
+GET /api/config?profile=gtx1050ti
+```
+
+The selected profile is passed into the main runtime and vision router. `gtx1050ti` forces the GTX 1050 Ti optimization profile and keeps heavy Qwen vision disabled by default.
 
 

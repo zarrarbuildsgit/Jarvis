@@ -13,15 +13,19 @@ import torch
 from PIL import Image
 from loguru import logger
 
-from backend.optimization import detect_profile
+from backend.optimization import GTX1050TiProfile, detect_profile
 
 
 class VisionRouter:
-    def __init__(self, lazy_load: bool = True):
+    def __init__(self, lazy_load: bool = True, optimization_profile: str | None = None):
         self.models: Dict[str, dict] = {}
         self.default_model: Optional[str] = None
         self.device = self._get_device()
-        self.profile = detect_profile()
+        if optimization_profile == "gtx1050ti":
+            self.profile = GTX1050TiProfile()
+            self.profile.apply_environment()
+        else:
+            self.profile = detect_profile()
         self.lazy_load = lazy_load
         self.model_specs = {
             "smolvlm": {

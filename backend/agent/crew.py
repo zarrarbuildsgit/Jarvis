@@ -19,7 +19,7 @@ from backend.plugins.manager import PluginManager
 class JARVIS_Crew:
     """Multi-agent system with Vision, Action, Verification, Memory, plugins, and debate."""
 
-    def __init__(self, enable_debate: bool = True, plugin_dirs: Optional[list[str]] = None):
+    def __init__(self, enable_debate: bool = True, plugin_dirs: Optional[list[str]] = None, config: Any = None):
         from backend.memory.chroma_memory import MemoryManager
         from backend.screen.capture import ScreenCapture
         from backend.screen.control import ScreenControl
@@ -29,7 +29,11 @@ class JARVIS_Crew:
         self.memory = MemoryManager()
         self.screen_capture = ScreenCapture()
         self.screen_control = ScreenControl()
-        self.vision_router = VisionRouter()
+        self.config = config
+        self.vision_router = VisionRouter(
+            lazy_load=config.hardware.lazy_load_models if config else True,
+            optimization_profile=config.hardware.optimization_profile if config else None,
+        )
         self.trust = TrustManager()
         self.plugin_manager = PluginManager(plugin_dirs or ["plugins", "data/plugins"])
         self.plugin_manager.discover()
@@ -214,4 +218,5 @@ class JARVIS_Crew:
             "plugins": self.plugin_manager.list_plugins(),
             "debate_enabled": self.debate.config.enabled,
             "action_runtime": "enabled",
+            "profile": self.config.system.profile if self.config else "unknown",
         }

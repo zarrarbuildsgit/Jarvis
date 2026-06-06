@@ -1,0 +1,27 @@
+# Low-memory profile. Prioritizes stability over model quality.
+system:
+  profile: low_ram
+
+hardware:
+  gpu: cpu
+  max_vram_gb: 0
+  max_ram_gb: 8
+  threads: 2
+  optimization_profile: low_ram
+  lazy_load_models: true
+
+vision:
+  models:
+    - name: smolvlm
+      enabled: true
+    - name: florence2
+      enabled: false
+    - name: qwen
+      enabled: false
+
+voice:
+  tts:
+    enabled: false
+
+security:
+  require_approvals: true

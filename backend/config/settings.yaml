@@ -5,6 +5,7 @@ system:
   name: "JARVIS"
   version: "0.1.0"
   phase: 5
+  profile: "settings"
   debug: false
 
 hardware:

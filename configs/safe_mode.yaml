@@ -1,0 +1,22 @@
+# Safe mode profile. Maximum caution and minimum automation.
+system:
+  profile: safe_mode
+  debug: true
+
+hardware:
+  gpu: cpu
+  max_vram_gb: 0
+  max_ram_gb: 8
+  threads: 2
+  optimization_profile: safe_mode
+  lazy_load_models: true
+
+phase5:
+  debate:
+    enabled: true
+  continuous_conversation:
+    enabled: false
+
+security:
+  require_approvals: true
+  safe_mode: true

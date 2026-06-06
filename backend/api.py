@@ -94,6 +94,23 @@ async def update_agent_status(status_update: dict):
     await manager.broadcast({"type": "status_update", "status": _agent_status})
     return {"ok": True, "status": _agent_status}
 
+@app.get("/api/config/profiles")
+async def config_profiles():
+    try:
+        from backend.config.loader import available_profiles
+        return {"profiles": available_profiles()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/config")
+async def config(profile: Optional[str] = None):
+    try:
+        from backend.config.loader import load_config
+        cfg = load_config(profile, force_reload=True)
+        return {"config": cfg.to_dict()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.get("/api/plugins")
 async def plugins():
     try:

@@ -39,7 +39,7 @@ def setup_logging():
 
 console = Console()
 
-async def initialize_system():
+async def initialize_system(config=None):
     """Initialize all JARVIS subsystems"""
     console.print(Panel.fit(
         "[bold blue]🤖 J.A.R.V.I.S. Initializing...[/bold blue]\n"
@@ -48,7 +48,11 @@ async def initialize_system():
     ))
     
     setup_logging()
-    logger.info("JARVIS system starting")
+    if config is not None:
+        logger.info(f"JARVIS system starting with config: {config.summary()}")
+        console.print(f"[dim]Config: {config.summary()}[/dim]")
+    else:
+        logger.info("JARVIS system starting")
     
     from backend.agent.crew import JARVIS_Crew
     from backend.memory.chroma_memory import MemoryManager
@@ -59,8 +63,11 @@ async def initialize_system():
     memory = MemoryManager()
     trust = TrustManager()
     screen = ScreenCapture()
-    vision = VisionRouter()
-    crew = JARVIS_Crew(enable_debate=True)
+    vision = VisionRouter(
+        lazy_load=config.hardware.lazy_load_models if config else True,
+        optimization_profile=config.hardware.optimization_profile if config else None,
+    )
+    crew = JARVIS_Crew(enable_debate=True, config=config)
     
     console.print("[green]✓[/green] Memory system initialized")
     console.print("[green]✓[/green] Trust manager initialized")
@@ -75,7 +82,8 @@ async def initialize_system():
         "trust": trust,
         "screen": screen,
         "vision": vision,
-        "crew": crew
+        "crew": crew,
+        "config": config,
     }
 
 async def interactive_mode(system):
@@ -201,15 +209,18 @@ async def headless_agent_loop(system):
 @click.command()
 @click.option("--phase", default=1, help="Phase to run (1-5)")
 @click.option("--headless", is_flag=True, help="Run without UI")
-def main(phase, headless):
+@click.option("--profile", default=None, help="Config profile: default, gtx1050ti, low_ram, high_end_gpu, safe_mode")
+def main(phase, headless, profile):
     """JARVIS main entry point"""
     console.print(Panel.fit(
         f"[bold magenta]🚀 J.A.R.V.I.S. Phase {phase}[/bold magenta]",
         border_style="magenta"
     ))
+    from backend.config.loader import load_config
+    config = load_config(profile)
     
     if phase in (1, 5):
-        system = asyncio.run(initialize_system())
+        system = asyncio.run(initialize_system(config))
         if phase == 5:
             console.print("[green]Phase 5 enabled: plugins + debate + GTX 1050 Ti profile + service/tray support[/green]")
             if headless:
@@ -221,7 +232,7 @@ def main(phase, headless):
                 return
         asyncio.run(interactive_mode(system))
     elif phase == 2:
-        system = asyncio.run(initialize_system())
+        system = asyncio.run(initialize_system(config))
         from backend.voice.integration import VoiceIntegration
         voice = VoiceIntegration(system["crew"], system["trust"], continuous=True)
         voice.initialize()

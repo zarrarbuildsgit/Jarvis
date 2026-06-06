@@ -14,6 +14,8 @@ uv run python scripts/download_models.py
 
 # 3. Start JARVIS
 uv run python main.py --phase 5
+# Optional hardware/safety profiles:
+uv run python main.py --phase 5 --profile gtx1050ti
 ```
 
 ## 🏗️ Architecture

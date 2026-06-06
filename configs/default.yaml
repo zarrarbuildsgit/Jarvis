@@ -1,0 +1,32 @@
+# Default JARVIS profile. Balanced behavior for most machines.
+system:
+  profile: default
+  phase: 5
+
+hardware:
+  gpu: auto
+  max_vram_gb: 6
+  max_ram_gb: 16
+  threads: 4
+  optimization_profile: auto
+  lazy_load_models: true
+
+vision:
+  models:
+    - name: smolvlm
+      enabled: true
+    - name: florence2
+      enabled: true
+    - name: qwen
+      enabled: false
+
+phase5:
+  debate:
+    enabled: true
+  plugins:
+    enabled: true
+  continuous_conversation:
+    enabled: true
+
+security:
+  require_approvals: true
