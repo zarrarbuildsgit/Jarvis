@@ -69,3 +69,278 @@
 16:44:09 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
 16:44:09 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
 16:44:09 | INFO     | __main__:interactive_mode:111 | User requested shutdown
+16:48:43 | INFO     | __main__:initialize_system:52 | JARVIS system starting with config: profile=default phase=5 gpu=auto max_vram=6.0GB lazy_models=True approvals=True
+16:48:47 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:48:47 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:48:47 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:48:47 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:48:47 | INFO     | backend.memory.chroma_memory:__init__:38 | MemoryManager initialized with ChromaDB
+16:48:47 | WARNING  | backend.screen.capture:_initialize_backend:28 | DXCam failed: No module named 'dxcam', falling back to mss
+16:48:47 | INFO     | backend.screen.capture:_initialize_backend:33 | mss backend initialized
+16:48:47 | INFO     | backend.screen.control:_initialize_libraries:28 | pywinauto initialized
+16:48:47 | INFO     | backend.screen.control:_initialize_libraries:36 | uiautomation initialized
+16:48:47 | INFO     | backend.screen.control:_initialize_libraries:45 | PyDirectInput initialized
+16:48:47 | INFO     | backend.vision.model_router:__init__:52 | Vision device=%s profile=%s lazy=%s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:47 | INFO     | backend.plugins.manager:load_plugin:52 | Loaded plugin: %s
+16:48:54 | INFO     | backend.agent.crew:__init__:60 | JARVIS agents assembled: core=%s plugins=%s debate=%s
+16:48:54 | INFO     | __main__:initialize_system:78 | All subsystems initialized successfully
+16:49:26 | INFO     | backend.agent.crew:process_command:106 | Processing command: %s
+16:52:05 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: User command: Yo Jarvis you there
+16:52:05 | WARNING  | backend.agent.crew:process_command:123 | ⚠️ Command requires trust level 2, current: 1. Ask the user to approve or raise trust.
+16:52:24 | INFO     | backend.agent.crew:process_command:106 | Processing command: %s
+16:52:25 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: User command: trust level increase
+16:52:25 | WARNING  | backend.agent.crew:process_command:123 | ⚠️ Command requires trust level 2, current: 1. Ask the user to approve or raise trust.
+16:52:51 | INFO     | backend.agent.crew:process_command:106 | Processing command: %s
+16:52:52 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: User command: /trust level 2
+16:52:52 | WARNING  | backend.agent.crew:process_command:123 | ⚠️ Command requires trust level 2, current: 1. Ask the user to approve or raise trust.
+17:02:50 | INFO     | backend.agent.crew:process_command:106 | Processing command: %s
+17:02:52 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: User command: Start UI server
+17:02:52 | WARNING  | backend.agent.crew:process_command:123 | ⚠️ Command requires trust level 2, current: 1. Ask the user to approve or raise trust.
+17:07:03 | INFO     | backend.agent.crew:process_command:106 | Processing command: %s
+17:07:03 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: User command: what can you do
+17:07:04 | ERROR    | backend.agent.crew:process_command:166 | Command processing failed
+Traceback (most recent call last):
+
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\llms\openai\openai.py", line 724, in completion
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\llms\openai\openai.py", line 626, in completion
+    openai_client: OpenAI = self._get_openai_client(  # type: ignore
+                            │    └ <function OpenAIChatCompletion._get_openai_client at 0x000002C9BC4A9940>
+                            └ <litellm.llms.openai.openai.OpenAIChatCompletion object at 0x000002C9BC60F2F0>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\llms\openai\openai.py", line 377, in _get_openai_client
+    _new_client = OpenAI(
+                  └ <class 'openai.OpenAI'>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\openai\_client.py", line 116, in __init__
+    raise OpenAIError(
+          └ <class 'openai.OpenAIError'>
+
+openai.OpenAIError: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\main.py", line 1831, in completion
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\main.py", line 1804, in completion
+    response = openai_chat_completions.completion(
+               │                       └ <function OpenAIChatCompletion.completion at 0x000002C9BC4A9C60>
+               └ <litellm.llms.openai.openai.OpenAIChatCompletion object at 0x000002C9BC60F2F0>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\llms\openai\openai.py", line 735, in completion
+    raise OpenAIError(
+          └ <class 'litellm.llms.openai.common_utils.OpenAIError'>
+
+litellm.llms.openai.common_utils.OpenAIError: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "D:\001. JARVIS\JARVIS\main.py", line 249, in <module>
+    main()
+    └ <Command main>
+
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\click\core.py", line 1161, in __call__
+    return self.main(*args, **kwargs)
+           │    │     │       └ {}
+           │    │     └ ()
+           │    └ <function BaseCommand.main at 0x000002C99A716840>
+           └ <Command main>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\click\core.py", line 1082, in main
+    rv = self.invoke(ctx)
+         │    │      └ <click.core.Context object at 0x000002C999886000>
+         │    └ <function Command.invoke at 0x000002C99A717420>
+         └ <Command main>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\click\core.py", line 1443, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           │   │      │    │           │   └ {'phase': 5, 'headless': False, 'profile': None}
+           │   │      │    │           └ <click.core.Context object at 0x000002C999886000>
+           │   │      │    └ <function main at 0x000002C99A73D440>
+           │   │      └ <Command main>
+           │   └ <function Context.invoke at 0x000002C99A715DA0>
+           └ <click.core.Context object at 0x000002C999886000>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\click\core.py", line 788, in invoke
+    return __callback(*args, **kwargs)
+                       │       └ {'phase': 5, 'headless': False, 'profile': None}
+                       └ ()
+
+  File "D:\001. JARVIS\JARVIS\main.py", line 234, in main
+    asyncio.run(interactive_mode(system))
+    │       │   │                └ {'memory': <backend.memory.chroma_memory.MemoryManager object at 0x000002C999BC9AF0>, 'trust': <backend.security.trust.TrustM...
+    │       │   └ <function interactive_mode at 0x000002C99A73C540>
+    │       └ <function run at 0x000002C99927BB00>
+    └ <module 'asyncio' from 'C:\\Users\\M.Zarrar\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\asyncio\\__init__.py'>
+
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           │      │   └ <coroutine object interactive_mode at 0x000002C9BEACFB30>
+           │      └ <function Runner.run at 0x000002C9996ED1C0>
+           └ <asyncio.runners.Runner object at 0x000002C99992C740>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-4' coro=<interactive_mode() running at D:\001. JARVIS\JARVIS\main.py:159> cb=[_run_until_complete_cb...
+           │    │     └ <function BaseEventLoop.run_until_complete at 0x000002C9996EAD40>
+           │    └ <ProactorEventLoop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x000002C99992C740>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+    │    └ <function ProactorEventLoop.run_forever at 0x000002C9997A6B60>
+    └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\windows_events.py", line 322, in run_forever
+    super().run_forever()
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+    │    └ <function BaseEventLoop._run_once at 0x000002C9996ECAE0>
+    └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+    │      └ <function Handle._run at 0x000002C999222840>
+    └ <Handle Task.task_wakeup(<Future finis...ment variable>)>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+    │    │            │    │           │    └ <member '_args' of 'Handle' objects>
+    │    │            │    │           └ <Handle Task.task_wakeup(<Future finis...ment variable>)>
+    │    │            │    └ <member '_callback' of 'Handle' objects>
+    │    │            └ <Handle Task.task_wakeup(<Future finis...ment variable>)>
+    │    └ <member '_context' of 'Handle' objects>
+    └ <Handle Task.task_wakeup(<Future finis...ment variable>)>
+
+  File "D:\001. JARVIS\JARVIS\main.py", line 159, in interactive_mode
+    result = await crew.process_command(command, trust)
+                   │    │               │        └ <backend.security.trust.TrustManager object at 0x000002C9B2B6AC00>
+                   │    │               └ 'what can you do'
+                   │    └ <function JARVIS_Crew.process_command at 0x000002C99A96E5C0>
+                   └ <backend.agent.crew.JARVIS_Crew object at 0x000002C9B2BB0D70>
+
+> File "D:\001. JARVIS\JARVIS\backend\agent\crew.py", line 159, in process_command
+    result = await self._run_crew_or_fallback(command_for_ai)
+                   │    │                     └ 'what can you do\n\nRelevant memory summary:\n- User command: Yo Jarvis you there Processing started interactive/api/voice\n-...
+                   │    └ <function JARVIS_Crew._run_crew_or_fallback at 0x000002C99A96D3A0>
+                   └ <backend.agent.crew.JARVIS_Crew object at 0x000002C9B2BB0D70>
+
+  File "D:\001. JARVIS\JARVIS\backend\agent\crew.py", line 177, in _run_crew_or_fallback
+    return await asyncio.to_thread(self.crew.kickoff)
+                 │       │         │    │    └ <function Crew.kickoff at 0x000002C9BEC01EE0>
+                 │       │         │    └ Crew(id=b735bdb2-7c65-48a7-a977-72c68d68f051, process=Process.sequential, number_of_agents=4, number_of_tasks=4)
+                 │       │         └ <backend.agent.crew.JARVIS_Crew object at 0x000002C9B2BB0D70>
+                 │       └ <function to_thread at 0x000002C999701EE0>
+                 └ <module 'asyncio' from 'C:\\Users\\M.Zarrar\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\asyncio\\__init__.py'>
+
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+                 │    │                     └ functools.partial(<built-in method run of _contextvars.Context object at 0x000002C9BC4D4780>, <bound method Crew.kickoff of C...
+                 │    └ <function BaseEventLoop.run_in_executor at 0x000002C9996EB600>
+                 └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\M.Zarrar\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+             │        │            └ None
+             │        └ None
+             └ None
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\crew.py", line 661, in kickoff
+    result = self._run_sequential_process()
+             │    └ <function Crew._run_sequential_process at 0x000002C9BEC022A0>
+             └ Crew(id=b735bdb2-7c65-48a7-a977-72c68d68f051, process=Process.sequential, number_of_agents=4, number_of_tasks=4)
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\crew.py", line 773, in _run_sequential_process
+    return self._execute_tasks(self.tasks)
+           │    │              │    └ [Task(description=Analyze current screen. User command: what can you do
+           │    │              │      
+           │    │              │      Relevant memory summary:
+           │    │              │      - User command: Yo Jarvis y...
+           │    │              └ Crew(id=b735bdb2-7c65-48a7-a977-72c68d68f051, process=Process.sequential, number_of_agents=4, number_of_tasks=4)
+           │    └ <function Crew._execute_tasks at 0x000002C9BEC02480>
+           └ Crew(id=b735bdb2-7c65-48a7-a977-72c68d68f051, process=Process.sequential, number_of_agents=4, number_of_tasks=4)
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\crew.py", line 876, in _execute_tasks
+    task_output = task.execute_sync(
+                  │    └ <function Task.execute_sync at 0x000002C9B5563E20>
+                  └ Task(description=Analyze current screen. User command: what can you do
+                    
+                    Relevant memory summary:
+                    - User command: Yo Jarvis yo...
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\task.py", line 351, in execute_sync
+    return self._execute_core(agent, context, tools)
+           │    │             │      │        └ [DelegateWorkTool(name='Delegate work to coworker', description="Tool Name: Delegate work to coworker\nTool Arguments: {'task...
+           │    │             │      └ ''
+           │    │             └ Agent(role=Vision Analyst, goal=Analyze screenshots and UI elements accurately. Never hallucinate., backstory=Expert at readi...
+           │    └ <function Task._execute_core at 0x000002C9B55636A0>
+           └ Task(description=Analyze current screen. User command: what can you do
+             
+             Relevant memory summary:
+             - User command: Yo Jarvis yo...
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\task.py", line 495, in _execute_core
+    raise e  # Re-raise the exception after emitting the event
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\task.py", line 415, in _execute_core
+    result = agent.execute_task(
+             │     └ <function Agent.execute_task at 0x000002C9BEB78D60>
+             └ Agent(role=Vision Analyst, goal=Analyze screenshots and UI elements accurately. Never hallucinate., backstory=Expert at readi...
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agent.py", line 420, in execute_task
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agent.py", line 396, in execute_task
+    result = self._execute_without_timeout(task_prompt, task)
+             │    │                        │            └ Task(description=Analyze current screen. User command: what can you do
+             │    │                        │              
+             │    │                        │              Relevant memory summary:
+             │    │                        │              - User command: Yo Jarvis yo...
+             │    │                        └ 'Analyze current screen. User command: what can you do\n\nRelevant memory summary:\n- User command: Yo Jarvis you there Proce...
+             │    └ <function Agent._execute_without_timeout at 0x000002C9BEB79A80>
+             └ Agent(role=Vision Analyst, goal=Analyze screenshots and UI elements accurately. Never hallucinate., backstory=Expert at readi...
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agent.py", line 492, in _execute_without_timeout
+    return self.agent_executor.invoke(
+           │    │              └ <function CrewAgentExecutor.invoke at 0x000002C9BC862840>
+           │    └ <crewai.agents.crew_agent_executor.CrewAgentExecutor object at 0x000002C9BEBEB290>
+           └ Agent(role=Vision Analyst, goal=Analyze screenshots and UI elements accurately. Never hallucinate., backstory=Expert at readi...
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agents\crew_agent_executor.py", line 121, in invoke
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agents\crew_agent_executor.py", line 110, in invoke
+    formatted_answer = self._invoke_loop()
+                       │    └ <function CrewAgentExecutor._invoke_loop at 0x000002C9BC8B84A0>
+                       └ <crewai.agents.crew_agent_executor.CrewAgentExecutor object at 0x000002C9BEBEB290>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agents\crew_agent_executor.py", line 206, in _invoke_loop
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\agents\crew_agent_executor.py", line 153, in _invoke_loop
+    answer = get_llm_response(
+             └ <function get_llm_response at 0x000002C9BC862160>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\utilities\agent_utils.py", line 157, in get_llm_response
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\utilities\agent_utils.py", line 148, in get_llm_response
+    answer = llm.call(
+             │   └ <function LLM.call at 0x000002C9BC860E00>
+             └ <crewai.llm.LLM object at 0x000002C9BEB80AD0>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\llm.py", line 924, in call
+    return self._handle_non_streaming_response(
+           │    └ <function LLM._handle_non_streaming_response at 0x000002C9BC860CC0>
+           └ <crewai.llm.LLM object at 0x000002C9BEB80AD0>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\crewai\llm.py", line 763, in _handle_non_streaming_response
+    response = litellm.completion(**params)
+               │       │            └ {'model': 'gpt-4o-mini', 'messages': [{'role': 'system', 'content': 'You are Vision Analyst. Expert at reading desktop screen...
+               │       └ <function completion at 0x000002C9BC70B560>
+               └ <module 'litellm' from 'D:\\001. JARVIS\\JARVIS\\.venv\\Lib\\site-packages\\litellm\\__init__.py'>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\utils.py", line 1255, in wrapper
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\utils.py", line 1133, in wrapper
+    result = original_function(*args, **kwargs)
+             │                  │       └ {'model': 'gpt-4o-mini', 'messages': [{'role': 'system', 'content': 'You are Vision Analyst. Expert at reading desktop screen...
+             │                  └ ()
+             └ <function completion at 0x000002C9BC70B380>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\main.py", line 3216, in completion
+    raise exception_type(
+          └ <function exception_type at 0x000002C9B7B31580>
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2224, in exception_type
+    raise e
+  File "D:\001. JARVIS\JARVIS\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 363, in exception_type
+    raise AuthenticationError(
+          └ <class 'litellm.exceptions.AuthenticationError'>
+
+litellm.exceptions.AuthenticationError: litellm.AuthenticationError: AuthenticationError: OpenAIException - The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
+17:07:04 | DEBUG    | backend.security.trust:record_action:81 | Action recorded: what can you do -> Failed
+17:07:05 | DEBUG    | backend.memory.chroma_memory:add_episodic:57 | Episodic memory added: what can you do
+17:42:48 | INFO     | __main__:interactive_mode:111 | User requested shutdown
