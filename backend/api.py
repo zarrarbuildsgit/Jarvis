@@ -433,6 +433,159 @@ async def cancel_task(task_id: str):
     await manager.broadcast({"type": "task_cancelled", "task_id": task_id, "task": task.to_dict()})
     return {"status": task.status.value, "task": task.to_dict()}
 
+@app.get("/api/trajectories")
+async def list_trajectories(limit: int = 10):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        trajectories = logger.get_recent(limit=max(1, min(limit, 100)))
+        return {"trajectories": trajectories, "count": len(trajectories)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/trajectories/stats")
+async def trajectory_stats():
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        return logger.get_stats()
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/trajectories/{trajectory_id}")
+async def get_trajectory(trajectory_id: str):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        trajectory = logger.get_by_id(trajectory_id)
+        if not trajectory:
+            raise HTTPException(404, "Trajectory not found")
+        return {"trajectory": trajectory}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/trajectories/export")
+async def export_trajectories(payload: dict):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        output_path = payload.get("output_path", "data/trajectories/export_gepa.jsonl")
+        limit = payload.get("limit")
+        count = logger.export_for_gepa(output_path, limit)
+        return {"exported": count, "path": output_path}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/suggestions")
+async def get_skill_suggestions():
+    try:
+        from backend.skills.curator import SkillCurator
+        curator = SkillCurator()
+        suggestions = curator.get_suggestions()
+        return {"suggestions": suggestions, "count": len(suggestions)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/suggestions/scan")
+async def scan_for_skill_patterns():
+    try:
+        from backend.skills.curator import SkillCurator
+        curator = SkillCurator()
+        patterns = curator.scan_for_patterns()
+        curator.save_suggestions(patterns)
+        return {
+            "patterns_found": len(patterns),
+            "suggestions": [p.to_dict() for p in patterns]
+        }
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/suggestions/{pattern_id}/create")
+async def create_skill_from_suggestion(pattern_id: str, payload: dict = {}):
+    try:
+        from backend.skills.curator import SkillCurator, CommandPattern
+        from backend.skills.autonomous_creator import AutonomousCreator
+        
+        curator = SkillCurator()
+        suggestions = curator.get_suggestions()
+        
+        # Find pattern by representative command (using as ID)
+        pattern_data = next(
+            (s for s in suggestions if s.get("representative_command") == pattern_id),
+            None
+        )
+        
+        if not pattern_data:
+            raise HTTPException(404, "Pattern not found")
+        
+        # Reconstruct pattern
+        pattern = CommandPattern(**pattern_data)
+        
+        # Create skill
+        creator = AutonomousCreator()
+        auto_approve = payload.get("auto_approve", False)
+        skill = creator.create_skill_from_pattern(pattern, auto_approve=auto_approve)
+        
+        if not skill:
+            raise HTTPException(500, "Failed to create skill")
+        
+        # Remove from suggestions
+        curator.dismiss_suggestion(pattern_id)
+        
+        await manager.broadcast({"type": "skill_created", "skill": skill.to_dict()})
+        return {"skill": skill.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/{skill_id}/review")
+async def review_auto_skill(skill_id: str, payload: dict):
+    try:
+        from backend.skills.autonomous_creator import AutonomousCreator
+        creator = AutonomousCreator()
+        approved = payload.get("approved", True)
+        skill = creator.review_and_approve(skill_id, approved)
+        
+        if not skill:
+            raise HTTPException(404, "Skill not found")
+        
+        await manager.broadcast({
+            "type": "skill_reviewed",
+            "skill": skill.to_dict(),
+            "approved": approved
+        })
+        return {"skill": skill.to_dict(), "approved": approved}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/{skill_id}/performance")
+async def get_skill_performance(skill_id: str):
+    try:
+        from backend.skills.improver import SkillImprover
+        improver = SkillImprover()
+        perf = improver.get_performance(skill_id)
+        return {"performance": perf.to_dict()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/performance")
+async def get_all_skill_performance():
+    try:
+        from backend.skills.improver import SkillImprover
+        improver = SkillImprover()
+        performances = improver.get_all_performance()
+        return {
+            "performances": [p.to_dict() for p in performances],
+            "count": len(performances)
+        }
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
 @app.websocket("/ws/agent")
 async def agent_ws(ws: WebSocket):
     await manager.connect(ws)
