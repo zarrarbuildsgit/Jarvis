@@ -254,7 +254,11 @@ class TrajectoryLogger:
                             successes += 1
                         total_steps += len(traj.get("steps", []))
                         total_duration += traj.get("duration_ms", 0)
+<<<<<<< HEAD
                 except Exception:
+=======
+                except:
+>>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
                     pass
             
             sample_size = min(total, 100)

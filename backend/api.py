@@ -610,6 +610,7 @@ async def get_all_skill_performance():
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+<<<<<<< HEAD
 @app.post("/api/memory/nudge")
 async def run_memory_nudge():
     try:
@@ -745,6 +746,8 @@ async def parse_natural_language(payload: dict):
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+=======
+>>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
 @app.websocket("/ws/agent")
 async def agent_ws(ws: WebSocket):
     await manager.connect(ws)

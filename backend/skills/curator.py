@@ -88,7 +88,11 @@ class SkillCurator:
                         continue
                     if traj.get("success"):
                         recent_successful.append(traj)
+<<<<<<< HEAD
                 except Exception:
+=======
+                except:
+>>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
                     continue
             
             # Group by similarity
@@ -257,14 +261,22 @@ class SkillCurator:
         
         # Success rate
         successes = sum(1 for t in trajectories if t.get("success"))
+<<<<<<< HEAD
         success_rate = successes / len(trajectories) if trajectories else 0
+=======
+        success_rate = successes / len(trajectories)
+>>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
         
         # Recency score (more recent = higher)
         try:
             last_time = max(datetime.fromisoformat(t.get("timestamp", "").replace("Z", "+00:00")) for t in trajectories)
             days_ago = (datetime.now(last_time.tzinfo) - last_time).days
             recency_score = max(0, 1.0 - days_ago / self.lookback_days)
+<<<<<<< HEAD
         except Exception:
+=======
+        except:
+>>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
             recency_score = 0.5
         
         # Frequency score
