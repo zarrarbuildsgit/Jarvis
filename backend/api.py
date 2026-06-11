@@ -36,6 +36,7 @@ class ScheduleRequest(BaseModel):
     delay_seconds: Optional[int] = None
     interval_seconds: Optional[int] = None
     daily_time: Optional[str] = None
+    weekday: Optional[str] = None  # for weekly schedules, e.g. "monday"
     priority: Optional[str] = "normal"
     natural_language: Optional[str] = None  # NEW: "every morning at 9am"
 
@@ -397,6 +398,10 @@ async def create_schedule(req: ScheduleRequest):
             if parsed["type"] == "daily":
                 req.schedule_type = "daily"
                 req.daily_time = parsed["time"]
+            elif parsed["type"] == "weekly":
+                req.schedule_type = "weekly"
+                req.weekday = parsed["weekday"]
+                req.daily_time = parsed["time"]
             elif parsed["type"] == "interval":
                 req.schedule_type = "interval"
                 req.interval_seconds = parsed["seconds"]
@@ -417,6 +422,10 @@ async def create_schedule(req: ScheduleRequest):
             if not req.daily_time:
                 raise HTTPException(400, "daily_time is required for daily schedules")
             schedule = task_scheduler.schedule_daily(req.command, req.daily_time, req.priority or "normal")
+        elif req.schedule_type == "weekly":
+            if not req.weekday or not req.daily_time:
+                raise HTTPException(400, "weekday and daily_time are required for weekly schedules")
+            schedule = task_scheduler.schedule_weekly(req.command, req.weekday, req.daily_time, req.priority or "normal")
         else:
             if not req.run_at:
                 raise HTTPException(400, "run_at is required for once schedules")
@@ -527,25 +536,28 @@ async def scan_for_skill_patterns():
         raise HTTPException(500, str(exc))
 
 @app.post("/api/skills/suggestions/{pattern_id}/create")
-async def create_skill_from_suggestion(pattern_id: str, payload: dict = {}):
+async def create_skill_from_suggestion(pattern_id: str, payload: Optional[dict] = None):
     try:
+        from dataclasses import fields as dataclass_fields
         from backend.skills.curator import SkillCurator, CommandPattern
         from backend.skills.autonomous_creator import AutonomousCreator
-        
+
+        payload = payload or {}
         curator = SkillCurator()
         suggestions = curator.get_suggestions()
-        
+
         # Find pattern by representative command (using as ID)
         pattern_data = next(
             (s for s in suggestions if s.get("representative_command") == pattern_id),
             None
         )
-        
+
         if not pattern_data:
             raise HTTPException(404, "Pattern not found")
-        
-        # Reconstruct pattern
-        pattern = CommandPattern(**pattern_data)
+
+        # Reconstruct pattern, ignoring unknown keys from older/newer files
+        known = {f.name for f in dataclass_fields(CommandPattern)}
+        pattern = CommandPattern(**{k: v for k, v in pattern_data.items() if k in known})
         
         # Create skill
         creator = AutonomousCreator()
@@ -610,7 +622,6 @@ async def get_all_skill_performance():
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
-<<<<<<< HEAD
 @app.post("/api/memory/nudge")
 async def run_memory_nudge():
     try:
@@ -659,11 +670,39 @@ async def get_memory_md():
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
+# Single shared manager: gateways poll in the background, so start/stop must
+# operate on the same instances. Per-request managers leave zombie pollers
+# that the API can never stop.
+_gateway_manager = None
+
+def get_gateway_manager():
+    global _gateway_manager
+    if _gateway_manager is None:
+        from backend.gateway.manager import GatewayManager
+        _gateway_manager = GatewayManager()
+    return _gateway_manager
+
+@app.on_event("startup")
+async def _start_gateways():
+    try:
+        manager = get_gateway_manager()
+        if manager.gateways:
+            await manager.start_all()
+    except Exception as exc:
+        logger.error(f"Gateway startup failed: {exc}")
+
+@app.on_event("shutdown")
+async def _stop_gateways():
+    try:
+        if _gateway_manager is not None:
+            await _gateway_manager.stop_all()
+    except Exception as exc:
+        logger.error(f"Gateway shutdown failed: {exc}")
+
 @app.get("/api/gateway")
 async def list_gateways():
     try:
-        from backend.gateway.manager import GatewayManager
-        manager = GatewayManager()
+        manager = get_gateway_manager()
         return {"gateways": manager.list_gateways()}
     except Exception as exc:
         raise HTTPException(500, str(exc))
@@ -671,20 +710,21 @@ async def list_gateways():
 @app.post("/api/gateway/telegram/setup")
 async def setup_telegram(payload: dict):
     try:
-        from backend.gateway.manager import GatewayManager
         bot_token = payload.get("bot_token")
         allowed_users = payload.get("allowed_users", [])
-        
+
         if not bot_token:
             raise HTTPException(400, "bot_token is required")
-        
-        manager = GatewayManager()
+        if not allowed_users:
+            raise HTTPException(400, "allowed_users is required: an empty allowlist would be rejected by the gateway (fail-closed)")
+
+        manager = get_gateway_manager()
         gateway = manager.add_telegram(bot_token, allowed_users)
-        
+
         return {
             "success": True,
             "gateway": gateway.to_dict(),
-            "message": "Telegram gateway configured. Restart required to activate."
+            "message": "Telegram gateway configured. Start it via POST /api/gateway/telegram/start (it will also auto-start on next launch)."
         }
     except HTTPException:
         raise
@@ -694,8 +734,7 @@ async def setup_telegram(payload: dict):
 @app.post("/api/gateway/{platform}/start")
 async def start_gateway(platform: str):
     try:
-        from backend.gateway.manager import GatewayManager
-        manager = GatewayManager()
+        manager = get_gateway_manager()
         gateway = manager.get_gateway(platform)
         
         if not gateway:
@@ -711,8 +750,7 @@ async def start_gateway(platform: str):
 @app.post("/api/gateway/{platform}/stop")
 async def stop_gateway(platform: str):
     try:
-        from backend.gateway.manager import GatewayManager
-        manager = GatewayManager()
+        manager = get_gateway_manager()
         gateway = manager.get_gateway(platform)
         
         if not gateway:
@@ -746,8 +784,6 @@ async def parse_natural_language(payload: dict):
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
-=======
->>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
 @app.websocket("/ws/agent")
 async def agent_ws(ws: WebSocket):
     await manager.connect(ws)
