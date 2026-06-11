@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Build artifacts
+dist/
+build/
+*.spec
+
+# Runtime data (regenerated locally)
+data/trajectories/
+data/trajectories_test/
