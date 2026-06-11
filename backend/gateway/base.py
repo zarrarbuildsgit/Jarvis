@@ -6,7 +6,7 @@ Sprint 6: Multi-platform messaging gateway
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -16,7 +16,7 @@ from loguru import logger
 @dataclass
 class GatewayMessage:
     """Standardized message format across platforms"""
-    
+
     platform: str  # telegram, discord, slack, etc.
     user_id: str
     username: Optional[str] = None
@@ -24,8 +24,8 @@ class GatewayMessage:
     message_id: Optional[str] = None
     chat_id: Optional[str] = None
     timestamp: str = ""
-    raw_data: Dict[str, Any] = None
-    
+    raw_data: Dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now().isoformat()

@@ -6,6 +6,7 @@ Sprint 6: Manages all messaging platform gateways
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -38,6 +39,9 @@ class GatewayManager:
                         bot_token=telegram_config["bot_token"],
                         allowed_users=telegram_config.get("allowed_users", [])
                     )
+                    # Wire the manager's dispatcher so a gateway started
+                    # directly (e.g. via the API) doesn't drop messages.
+                    gateway.set_message_handler(self._handle_message)
                     self.gateways["telegram"] = gateway
                     logger.info("Telegram gateway loaded from config")
         except Exception as e:
@@ -50,15 +54,23 @@ class GatewayManager:
             for name, gateway in self.gateways.items():
                 if isinstance(gateway, TelegramGateway):
                     config[name] = {
-                        "enabled": gateway.is_running,
+                        # "enabled" means "configured and should be loaded on
+                        # restart". It must NOT track is_running: gateways are
+                        # configured while stopped, and saving enabled=False
+                        # here used to silently drop the config on restart.
+                        "enabled": True,
                         "bot_token": gateway.bot_token,
-                        "allowed_users": list(gateway.allowed_users),
+                        "allowed_users": sorted(gateway.allowed_users),
                     }
-            
-            self.config_file.write_text(
+
+            # Atomic write so a crash mid-save cannot corrupt the config
+            # (os.replace is atomic on Windows and POSIX).
+            tmp_file = self.config_file.with_suffix(".json.tmp")
+            tmp_file.write_text(
                 json.dumps(config, indent=2),
                 encoding="utf-8"
             )
+            os.replace(tmp_file, self.config_file)
         except Exception as e:
             logger.error(f"Failed to save gateway config: {e}")
     
