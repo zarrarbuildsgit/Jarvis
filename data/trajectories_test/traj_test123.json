@@ -1,0 +1,36 @@
+{
+  "id": "traj_test123",
+  "command": "open chrome",
+  "timestamp": "2026-06-09T11:10:16.976413",
+  "plan": {
+    "summary": "Open Chrome browser"
+  },
+  "steps": [
+    {
+      "step_number": 1,
+      "timestamp": "2026-06-09T11:10:16.976421",
+      "thought": "Planning",
+      "action": {
+        "type": "open_app"
+      }
+    },
+    {
+      "step_number": 2,
+      "timestamp": "2026-06-09T11:10:16.976423",
+      "thought": "Executing",
+      "action": {
+        "type": "open_app"
+      },
+      "result": {
+        "success": true
+      }
+    }
+  ],
+  "final_result": {
+    "success": true,
+    "message": "Chrome opened"
+  },
+  "success": true,
+  "duration_ms": 1234,
+  "metadata": {}
+}

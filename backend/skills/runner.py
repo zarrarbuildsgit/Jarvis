@@ -14,6 +14,14 @@ class SkillRunner:
     def __init__(self, runtime, manager: SkillManager | None = None):
         self.runtime = runtime
         self.manager = manager or SkillManager()
+        self._improver = None  # Lazy load to avoid circular imports
+
+    @property
+    def improver(self):
+        if self._improver is None:
+            from backend.skills.improver import SkillImprover
+            self._improver = SkillImprover(skill_manager=self.manager)
+        return self._improver
 
     async def run(self, skill_id_or_name: str, context: Optional[Dict[str, Any]] = None) -> RuntimeResult:
         skill = self.manager.get(skill_id_or_name)
@@ -29,6 +37,9 @@ class SkillRunner:
         if self.runtime.executor is None:
             return RuntimeResult(skill.name, True, False, "Action runtime has no executor configured")
 
+        import time
+        start_time = time.time()
+        
         trust_level = int(context.get("trust_level", getattr(self.runtime, "trust_level_getter", lambda: 1)()))
         results = []
         policy_decisions = []
@@ -42,13 +53,18 @@ class SkillRunner:
             if decision.blocked:
                 message = f"🛑 Skill blocked by safety policy: {decision.reason}"
                 self.runtime.audit_logger.record("skill_action_blocked", message, {"skill": skill.to_dict(), "action": action.to_dict(), "decision": decision.to_dict()})
-                return RuntimeResult(skill.name, True, False, message, results=results, metadata={"skill": skill.to_dict(), "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+                result = RuntimeResult(skill.name, True, False, message, results=results, metadata={"skill": skill.to_dict(), "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+                # Track failure
+                self.improver.track_execution(skill.id, False, int((time.time() - start_time) * 1000), message)
+                return result
 
             if decision.needs_approval:
                 approval = self.runtime.approval_manager.create(action, decision, command=f"skill:{skill.name}")
                 message = f"⚠️ Skill approval required ({approval.id}): {decision.reason}"
                 self.runtime.audit_logger.record("skill_approval_requested", message, {"skill": skill.to_dict(), "approval": approval.to_dict()})
-                return RuntimeResult(skill.name, True, False, message, results=results, metadata={"skill": skill.to_dict(), "approval_id": approval.id, "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+                result = RuntimeResult(skill.name, True, False, message, results=results, metadata={"skill": skill.to_dict(), "approval_id": approval.id, "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+                # Track as not run (needs approval)
+                return result
 
             result = await self.runtime.executor.execute(action)
             results.append(result)
@@ -62,4 +78,11 @@ class SkillRunner:
         skill.touch_run()
         self.manager.save(skill)
         message = f"✅ Skill completed: {skill.name}" if success else f"❌ Skill stopped: {skill.name}"
-        return RuntimeResult(skill.name, True, success, message, results=results, metadata={"skill": skill.to_dict(), "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+        final_result = RuntimeResult(skill.name, True, success, message, results=results, metadata={"skill": skill.to_dict(), "policy_decisions": [d.to_dict() for d in policy_decisions], **context})
+        
+        # Track performance
+        duration_ms = int((time.time() - start_time) * 1000)
+        error_msg = None if success else (results[-1].error if results else "Unknown error")
+        self.improver.track_execution(skill.id, success, duration_ms, error_msg)
+        
+        return final_result

@@ -37,6 +37,7 @@ class ScheduleRequest(BaseModel):
     interval_seconds: Optional[int] = None
     daily_time: Optional[str] = None
     priority: Optional[str] = "normal"
+    natural_language: Optional[str] = None  # NEW: "every morning at 9am"
 
 class TrustLevelRequest(BaseModel):
     level: int
@@ -383,6 +384,29 @@ async def audit_tail(limit: int = 100):
 @app.post("/api/schedules")
 async def create_schedule(req: ScheduleRequest):
     try:
+        # Handle natural language
+        if req.natural_language:
+            from backend.tasks.nl_parser import NaturalLanguageParser
+            parser = NaturalLanguageParser()
+            parsed = parser.parse(req.natural_language)
+            
+            if not parsed:
+                raise HTTPException(400, f"Could not parse: {req.natural_language}")
+            
+            # Convert to schedule type
+            if parsed["type"] == "daily":
+                req.schedule_type = "daily"
+                req.daily_time = parsed["time"]
+            elif parsed["type"] == "interval":
+                req.schedule_type = "interval"
+                req.interval_seconds = parsed["seconds"]
+            elif parsed["type"] == "delay":
+                req.schedule_type = "delay"
+                req.delay_seconds = parsed["seconds"]
+            elif parsed["type"] == "once":
+                req.schedule_type = "once"
+                req.run_at = parsed["run_at"]
+        
         if req.schedule_type == "delay":
             schedule = task_scheduler.schedule_delay(req.command, req.delay_seconds or 0, req.priority or "normal")
         elif req.schedule_type == "interval":
@@ -432,6 +456,294 @@ async def cancel_task(task_id: str):
     tasks[task_id] = task.to_dict()
     await manager.broadcast({"type": "task_cancelled", "task_id": task_id, "task": task.to_dict()})
     return {"status": task.status.value, "task": task.to_dict()}
+
+@app.get("/api/trajectories")
+async def list_trajectories(limit: int = 10):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        trajectories = logger.get_recent(limit=max(1, min(limit, 100)))
+        return {"trajectories": trajectories, "count": len(trajectories)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/trajectories/stats")
+async def trajectory_stats():
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        return logger.get_stats()
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/trajectories/{trajectory_id}")
+async def get_trajectory(trajectory_id: str):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        trajectory = logger.get_by_id(trajectory_id)
+        if not trajectory:
+            raise HTTPException(404, "Trajectory not found")
+        return {"trajectory": trajectory}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/trajectories/export")
+async def export_trajectories(payload: dict):
+    try:
+        from backend.agent.trajectory import TrajectoryLogger
+        logger = TrajectoryLogger()
+        output_path = payload.get("output_path", "data/trajectories/export_gepa.jsonl")
+        limit = payload.get("limit")
+        count = logger.export_for_gepa(output_path, limit)
+        return {"exported": count, "path": output_path}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/suggestions")
+async def get_skill_suggestions():
+    try:
+        from backend.skills.curator import SkillCurator
+        curator = SkillCurator()
+        suggestions = curator.get_suggestions()
+        return {"suggestions": suggestions, "count": len(suggestions)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/suggestions/scan")
+async def scan_for_skill_patterns():
+    try:
+        from backend.skills.curator import SkillCurator
+        curator = SkillCurator()
+        patterns = curator.scan_for_patterns()
+        curator.save_suggestions(patterns)
+        return {
+            "patterns_found": len(patterns),
+            "suggestions": [p.to_dict() for p in patterns]
+        }
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/suggestions/{pattern_id}/create")
+async def create_skill_from_suggestion(pattern_id: str, payload: dict = {}):
+    try:
+        from backend.skills.curator import SkillCurator, CommandPattern
+        from backend.skills.autonomous_creator import AutonomousCreator
+        
+        curator = SkillCurator()
+        suggestions = curator.get_suggestions()
+        
+        # Find pattern by representative command (using as ID)
+        pattern_data = next(
+            (s for s in suggestions if s.get("representative_command") == pattern_id),
+            None
+        )
+        
+        if not pattern_data:
+            raise HTTPException(404, "Pattern not found")
+        
+        # Reconstruct pattern
+        pattern = CommandPattern(**pattern_data)
+        
+        # Create skill
+        creator = AutonomousCreator()
+        auto_approve = payload.get("auto_approve", False)
+        skill = creator.create_skill_from_pattern(pattern, auto_approve=auto_approve)
+        
+        if not skill:
+            raise HTTPException(500, "Failed to create skill")
+        
+        # Remove from suggestions
+        curator.dismiss_suggestion(pattern_id)
+        
+        await manager.broadcast({"type": "skill_created", "skill": skill.to_dict()})
+        return {"skill": skill.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/skills/{skill_id}/review")
+async def review_auto_skill(skill_id: str, payload: dict):
+    try:
+        from backend.skills.autonomous_creator import AutonomousCreator
+        creator = AutonomousCreator()
+        approved = payload.get("approved", True)
+        skill = creator.review_and_approve(skill_id, approved)
+        
+        if not skill:
+            raise HTTPException(404, "Skill not found")
+        
+        await manager.broadcast({
+            "type": "skill_reviewed",
+            "skill": skill.to_dict(),
+            "approved": approved
+        })
+        return {"skill": skill.to_dict(), "approved": approved}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/{skill_id}/performance")
+async def get_skill_performance(skill_id: str):
+    try:
+        from backend.skills.improver import SkillImprover
+        improver = SkillImprover()
+        perf = improver.get_performance(skill_id)
+        return {"performance": perf.to_dict()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/skills/performance")
+async def get_all_skill_performance():
+    try:
+        from backend.skills.improver import SkillImprover
+        improver = SkillImprover()
+        performances = improver.get_all_performance()
+        return {
+            "performances": [p.to_dict() for p in performances],
+            "count": len(performances)
+        }
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/memory/nudge")
+async def run_memory_nudge():
+    try:
+        from backend.memory.nudges import MemoryNudges
+        nudges = MemoryNudges()
+        result = nudges.run_daily_nudge()
+        return result
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/memory/profile")
+async def get_memory_profile():
+    try:
+        from backend.memory.nudges import MemoryNudges
+        nudges = MemoryNudges()
+        profile = nudges.get_user_profile()
+        return profile
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/memory/user-md")
+async def get_user_md():
+    try:
+        from pathlib import Path
+        user_md = Path("data/memory/USER.md")
+        if not user_md.exists():
+            raise HTTPException(404, "USER.md not found")
+        content = user_md.read_text(encoding="utf-8")
+        return {"content": content}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/memory/memory-md")
+async def get_memory_md():
+    try:
+        from pathlib import Path
+        memory_md = Path("data/memory/MEMORY.md")
+        if not memory_md.exists():
+            raise HTTPException(404, "MEMORY.md not found")
+        content = memory_md.read_text(encoding="utf-8")
+        return {"content": content}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.get("/api/gateway")
+async def list_gateways():
+    try:
+        from backend.gateway.manager import GatewayManager
+        manager = GatewayManager()
+        return {"gateways": manager.list_gateways()}
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/gateway/telegram/setup")
+async def setup_telegram(payload: dict):
+    try:
+        from backend.gateway.manager import GatewayManager
+        bot_token = payload.get("bot_token")
+        allowed_users = payload.get("allowed_users", [])
+        
+        if not bot_token:
+            raise HTTPException(400, "bot_token is required")
+        
+        manager = GatewayManager()
+        gateway = manager.add_telegram(bot_token, allowed_users)
+        
+        return {
+            "success": True,
+            "gateway": gateway.to_dict(),
+            "message": "Telegram gateway configured. Restart required to activate."
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/gateway/{platform}/start")
+async def start_gateway(platform: str):
+    try:
+        from backend.gateway.manager import GatewayManager
+        manager = GatewayManager()
+        gateway = manager.get_gateway(platform)
+        
+        if not gateway:
+            raise HTTPException(404, f"Gateway not found: {platform}")
+        
+        success = await gateway.start()
+        return {"success": success, "gateway": gateway.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/gateway/{platform}/stop")
+async def stop_gateway(platform: str):
+    try:
+        from backend.gateway.manager import GatewayManager
+        manager = GatewayManager()
+        gateway = manager.get_gateway(platform)
+        
+        if not gateway:
+            raise HTTPException(404, f"Gateway not found: {platform}")
+        
+        await gateway.stop()
+        return {"success": True, "gateway": gateway.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+@app.post("/api/schedules/parse")
+async def parse_natural_language(payload: dict):
+    """Test endpoint to parse natural language without creating schedule"""
+    try:
+        from backend.tasks.nl_parser import NaturalLanguageParser
+        text = payload.get("text", "")
+        if not text:
+            raise HTTPException(400, "text is required")
+        
+        parser = NaturalLanguageParser()
+        result = parser.parse(text)
+        
+        if not result:
+            return {"parsed": False, "text": text}
+        
+        return {"parsed": True, "result": result, "text": text}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
 
 @app.websocket("/ws/agent")
 async def agent_ws(ws: WebSocket):
