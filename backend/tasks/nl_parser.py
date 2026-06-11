@@ -30,6 +30,11 @@ class NaturalLanguageParser:
                 r"every\s+weekday(?:\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?",
                 re.IGNORECASE
             ),
+            "every_dayname": re.compile(
+                r"every\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+                r"(?:\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?",
+                re.IGNORECASE
+            ),
             "every_morning": re.compile(
                 r"every\s+morning(?:\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?",
                 re.IGNORECASE
@@ -62,7 +67,10 @@ class NaturalLanguageParser:
             }
         """
         text = text.lower().strip()
-        
+        # Normalize noon/midnight to parseable times ("\bnoon\b" does not match "afternoon")
+        text = re.sub(r"\bnoon\b", "12:00 pm", text)
+        text = re.sub(r"\bmidnight\b", "12:00 am", text)
+
         # Try each pattern
         for pattern_name, pattern in self.patterns.items():
             match = pattern.search(text)
@@ -77,13 +85,11 @@ class NaturalLanguageParser:
         """Handle a matched pattern"""
         try:
             if pattern_name == "every_day_at":
-                hour = int(match.group(1))
-                minute = int(match.group(2) or 0)
-                ampm = match.group(3)
-                
-                if ampm:
-                    hour = self._to_24h(hour, ampm)
-                
+                parsed = self._parse_time(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+                if parsed is None:
+                    return None
+                hour, minute = parsed
+
                 return {
                     "type": "daily",
                     "time": f"{hour:02d}:{minute:02d}",
@@ -92,13 +98,11 @@ class NaturalLanguageParser:
                 }
             
             elif pattern_name == "every_morning":
-                hour = match.group(1)
-                if hour:
-                    hour = int(hour)
-                    minute = int(match.group(2) or 0)
-                    ampm = match.group(3)
-                    if ampm:
-                        hour = self._to_24h(hour, ampm)
+                if match.group(1):
+                    parsed = self._parse_time(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+                    if parsed is None:
+                        return None
+                    hour, minute = parsed
                 else:
                     hour, minute = 9, 0  # Default morning
                 
@@ -110,13 +114,14 @@ class NaturalLanguageParser:
                 }
             
             elif pattern_name == "every_evening":
-                hour = match.group(1)
-                if hour:
-                    hour = int(hour)
-                    minute = int(match.group(2) or 0)
-                    ampm = match.group(3)
-                    if ampm:
-                        hour = self._to_24h(hour, ampm)
+                if match.group(1):
+                    parsed = self._parse_time(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+                    if parsed is None:
+                        return None
+                    hour, minute = parsed
+                    # Bare "every evening at 8" means 8 PM, not 8 AM
+                    if not match.group(3) and 1 <= hour <= 11:
+                        hour += 12
                 else:
                     hour, minute = 18, 0  # Default evening (6pm)
                 
@@ -128,21 +133,44 @@ class NaturalLanguageParser:
                 }
             
             elif pattern_name == "every_weekday":
-                hour = match.group(1)
-                if hour:
-                    hour = int(hour)
-                    minute = int(match.group(2) or 0)
-                    ampm = match.group(3)
-                    if ampm:
-                        hour = self._to_24h(hour, ampm)
+                if match.group(1):
+                    parsed = self._parse_time(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+                    if parsed is None:
+                        return None
+                    hour, minute = parsed
                 else:
                     hour, minute = 9, 0
-                
+
                 return {
                     "type": "daily",
                     "time": f"{hour:02d}:{minute:02d}",
                     "cron": f"{minute} {hour} * * 1-5",
                     "description": f"Every weekday at {self._format_time(hour, minute)}",
+                }
+
+            elif pattern_name == "every_dayname":
+                day_name = match.group(1).lower()
+                if match.group(2):
+                    parsed = self._parse_time(int(match.group(2)), int(match.group(3) or 0), match.group(4))
+                    if parsed is None:
+                        return None
+                    hour, minute = parsed
+                else:
+                    hour, minute = 9, 0
+
+                # Cron convention: 0=Sunday .. 6=Saturday
+                cron_dow = {
+                    "sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
+                    "thursday": 4, "friday": 5, "saturday": 6,
+                }[day_name]
+
+                return {
+                    "type": "weekly",
+                    "weekday": day_name,
+                    "day_of_week": cron_dow,
+                    "time": f"{hour:02d}:{minute:02d}",
+                    "cron": f"{minute} {hour} * * {cron_dow}",
+                    "description": f"Every {day_name.capitalize()} at {self._format_time(hour, minute)}",
                 }
             
             elif pattern_name == "in_duration":
@@ -170,14 +198,14 @@ class NaturalLanguageParser:
                 }
             
             elif pattern_name == "at_time":
-                hour = int(match.group(1))
-                minute = int(match.group(2) or 0)
-                ampm = match.group(3)
-                
-                hour = self._to_24h(hour, ampm)
-                
-                # Calculate next occurrence
-                now = datetime.now()
+                parsed = self._parse_time(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+                if parsed is None:
+                    return None
+                hour, minute = parsed
+
+                # Calculate next occurrence (timezone-aware local time so
+                # consumers that assume naive == UTC do not shift the time)
+                now = datetime.now().astimezone()
                 target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 if target <= now:
                     target += timedelta(days=1)
@@ -194,6 +222,18 @@ class NaturalLanguageParser:
         
         return None
     
+    def _parse_time(self, hour: int, minute: int, ampm: Optional[str]) -> Optional[Tuple[int, int]]:
+        """Validate and convert a parsed time to 24h. Returns None if invalid."""
+        if minute < 0 or minute > 59:
+            return None
+        if ampm:
+            if hour < 1 or hour > 12:
+                return None
+            hour = self._to_24h(hour, ampm)
+        elif hour < 0 or hour > 23:
+            return None
+        return hour, minute
+
     def _to_24h(self, hour: int, ampm: str) -> int:
         """Convert 12h to 24h"""
         ampm = ampm.lower()

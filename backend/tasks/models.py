@@ -55,6 +55,14 @@ class ScheduleType(str, Enum):
     ONCE = "once"
     INTERVAL = "interval"
     DAILY = "daily"
+    WEEKLY = "weekly"
+
+
+# Python datetime.weekday() convention: Monday=0 ... Sunday=6
+WEEKDAY_INDEX = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
 
 
 @dataclass(slots=True)
@@ -124,6 +132,7 @@ class ScheduledTask:
     next_run_at: Optional[str] = None
     interval_seconds: Optional[int] = None
     daily_time: Optional[str] = None  # HH:MM, local machine time when interpreted
+    weekday: Optional[str] = None  # lowercase day name, for WEEKLY schedules
     last_run_at: Optional[str] = None
     run_count: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -148,9 +157,22 @@ class ScheduledTask:
         if self.schedule_type == ScheduleType.INTERVAL and self.interval_seconds:
             return (now + timedelta(seconds=max(1, int(self.interval_seconds)))).isoformat() + "Z"
         if self.schedule_type == ScheduleType.DAILY and self.daily_time:
+            # daily_time is local machine time; compute locally, store as UTC
             hour, minute = [int(part) for part in self.daily_time.split(":", 1)]
-            candidate = now.replace(hour=hour, minute=minute, second=0)
-            if candidate <= now:
+            local_now = datetime.now().astimezone().replace(microsecond=0)
+            candidate = local_now.replace(hour=hour, minute=minute, second=0)
+            if candidate <= local_now:
                 candidate += timedelta(days=1)
-            return candidate.isoformat() + "Z"
+            return candidate.astimezone(timezone.utc).isoformat() + "Z"
+        if self.schedule_type == ScheduleType.WEEKLY and self.daily_time and self.weekday:
+            target = WEEKDAY_INDEX.get(self.weekday.lower())
+            if target is None:
+                return None
+            hour, minute = [int(part) for part in self.daily_time.split(":", 1)]
+            local_now = datetime.now().astimezone().replace(microsecond=0)
+            days_ahead = (target - local_now.weekday()) % 7
+            candidate = (local_now + timedelta(days=days_ahead)).replace(hour=hour, minute=minute, second=0)
+            if candidate <= local_now:
+                candidate += timedelta(days=7)
+            return candidate.astimezone(timezone.utc).isoformat() + "Z"
         return None

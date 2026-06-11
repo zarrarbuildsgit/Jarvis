@@ -70,6 +70,22 @@ class TaskScheduler:
         self.save()
         return scheduled
 
+    def schedule_weekly(self, command: str, weekday: str, daily_time: str, priority: str | TaskPriority = TaskPriority.NORMAL, metadata: Optional[dict] = None) -> ScheduledTask:
+        scheduled = ScheduledTask(
+            command=command,
+            schedule_type=ScheduleType.WEEKLY,
+            priority=TaskPriority(priority),
+            weekday=weekday.lower(),
+            daily_time=daily_time,
+            metadata=metadata or {},
+        )
+        scheduled.next_run_at = scheduled.compute_next_run()
+        if scheduled.next_run_at is None:
+            raise ValueError(f"Invalid weekday for weekly schedule: {weekday}")
+        self._schedules[scheduled.id] = scheduled
+        self.save()
+        return scheduled
+
     def list(self, enabled: bool | None = None) -> List[ScheduledTask]:
         items = list(self._schedules.values())
         if enabled is not None:

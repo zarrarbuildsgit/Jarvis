@@ -6,28 +6,35 @@ Sprint 4: Daily reflection and user modeling
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from loguru import logger
 
 from backend.agent.trajectory import TrajectoryLogger
-from backend.memory.preferences import PreferenceStore
+from backend.memory.preferences import PreferenceStore, UserPreference
+
+# Hard caps so USER.md / MEMORY.md stay bounded no matter how often nudges run
+MAX_HISTORY_LINES = 50
+MAX_FILE_CHARS = 16_000
+MAX_SNIPPET_CHARS = 80
 
 
 class MemoryNudges:
     """Performs periodic reflection to extract insights and build user model"""
-    
+
     def __init__(
         self,
         trajectory_logger: Optional[TrajectoryLogger] = None,
         preference_store: Optional[PreferenceStore] = None,
+        memory_dir: Union[str, Path] = "data/memory",
     ):
-        self.trajectory_logger = trajectory_logger or TrajectoryLogger()
-        self.preference_store = preference_store or PreferenceStore()
-        self.memory_dir = Path("data/memory")
+        self.memory_dir = Path(memory_dir)
         self.memory_dir.mkdir(parents=True, exist_ok=True)
+        self.trajectory_logger = trajectory_logger or TrajectoryLogger()
+        self.preference_store = preference_store or PreferenceStore(str(self.memory_dir / "preferences.json"))
         
         self.user_md = self.memory_dir / "USER.md"
         self.memory_md = self.memory_dir / "MEMORY.md"
@@ -50,7 +57,7 @@ class MemoryNudges:
             
             preferences = self._extract_preferences(trajectories)
             for pref in preferences:
-                self.preference_store.ingest_text(pref, source="daily_nudge")
+                self._store_preference(pref)
             
             result = {
                 "analyzed": len(trajectories),
@@ -71,19 +78,39 @@ class MemoryNudges:
         try:
             all_trajs = self.trajectory_logger.get_recent(limit=500)
             recent = []
-            
+            since_local = self._to_naive_local(since)
+
             for traj in all_trajs:
                 try:
                     traj_time = datetime.fromisoformat(traj["timestamp"].replace("Z", "+00:00"))
-                    if traj_time.replace(tzinfo=None) >= since.replace(tzinfo=None):
+                    if self._to_naive_local(traj_time) >= since_local:
                         recent.append(traj)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Skipping trajectory with bad timestamp: {e}")
                     continue
-            
+
             return recent
         except Exception as e:
             logger.error(f"Failed to get trajectories: {e}")
             return []
+
+    @staticmethod
+    def _to_naive_local(value: datetime) -> datetime:
+        """Normalize aware timestamps to naive local time for comparison"""
+        if value.tzinfo is not None:
+            return value.astimezone().replace(tzinfo=None)
+        return value
+
+    def _store_preference(self, text: str) -> None:
+        """Persist an extracted preference (PreferenceExtractor patterns do not
+        match nudge phrasings like 'Prefers dark mode', so upsert directly)."""
+        try:
+            key = "habit_" + re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:48]
+            self.preference_store.upsert(
+                UserPreference(key=key, value=text, category="habit", confidence=0.6, source="daily_nudge")
+            )
+        except Exception as e:
+            logger.warning(f"Failed to store preference '{text}': {e}")
     
     def _extract_insights(self, trajectories: List[Dict]) -> List[str]:
         """Extract insights from trajectories"""
@@ -98,6 +125,8 @@ class MemoryNudges:
                 top_commands = command_counts.most_common(3)
                 for cmd, count in top_commands:
                     if count >= 2:
+                        if len(cmd) > MAX_SNIPPET_CHARS:
+                            cmd = cmd[: MAX_SNIPPET_CHARS - 3] + "..."
                         insights.append(f"Frequently used: '{cmd}' ({count} times)")
             
             successes = sum(1 for t in trajectories if t.get("success"))
@@ -144,17 +173,19 @@ class MemoryNudges:
         
         try:
             commands = [t.get("command", "").lower() for t in trajectories]
-            
-            if any("dark" in cmd for cmd in commands):
+            joined = "\n".join(commands)
+
+            # Word boundaries avoid false positives like "decode" or "barcode"
+            if re.search(r"\bdark\b", joined):
                 preferences.append("Prefers dark mode")
-            
-            if any("spotify" in cmd or "music" in cmd for cmd in commands):
+
+            if re.search(r"\b(spotify|music)\b", joined):
                 preferences.append("Listens to music while working")
-            
-            if any("chrome" in cmd for cmd in commands):
+
+            if re.search(r"\bchrome\b", joined):
                 preferences.append("Uses Chrome browser")
-            
-            if any("vscode" in cmd or "code" in cmd for cmd in commands):
+
+            if re.search(r"\b(vscode|vs code|code)\b", joined):
                 preferences.append("Uses VS Code")
             
             hours = []
@@ -194,10 +225,13 @@ class MemoryNudges:
                     content.append("## Preferences")
                     content.append("")
                     for pref in prefs[:10]:
-                        content.append(f"- {pref.value} (confidence: {pref.confidence:.0%})")
+                        value = str(pref.value)
+                        if len(value) > MAX_SNIPPET_CHARS:
+                            value = value[: MAX_SNIPPET_CHARS - 3] + "..."
+                        content.append(f"- {value} (confidence: {pref.confidence:.0%})")
                     content.append("")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to include preferences in USER.md: {e}")
             
             if insights:
                 content.append("## Recent Activity")
@@ -206,7 +240,7 @@ class MemoryNudges:
                     content.append(f"- {insight}")
                 content.append("")
             
-            self.user_md.write_text("\n".join(content), encoding="utf-8")
+            self.user_md.write_text("\n".join(content)[:MAX_FILE_CHARS], encoding="utf-8")
             logger.debug(f"Updated USER.md")
             
         except Exception as e:
@@ -235,12 +269,17 @@ class MemoryNudges:
             
             if self.memory_md.exists():
                 existing = self.memory_md.read_text(encoding="utf-8")
-                lines = existing.split("\n")
-                if len(lines) > 50:
+                # Drop any previous History section so history does not nest and grow
+                existing = existing.split("\n## History", 1)[0]
+                lines = [
+                    line for line in existing.split("\n")
+                    if line.strip() and not line.startswith("# ") and not line.startswith("*Last updated")
+                ]
+                if lines:
                     content.extend(["", "## History", ""])
-                    content.extend(lines[-50:])
-            
-            self.memory_md.write_text("\n".join(content), encoding="utf-8")
+                    content.extend(lines[-MAX_HISTORY_LINES:])
+
+            self.memory_md.write_text("\n".join(content)[:MAX_FILE_CHARS], encoding="utf-8")
             logger.debug(f"Updated MEMORY.md")
             
         except Exception as e:
@@ -263,8 +302,8 @@ class MemoryNudges:
             try:
                 prefs = self.preference_store.list()
                 profile["preferences_count"] = len(prefs)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to count preferences: {e}")
             
             return profile
         except Exception as e:
