@@ -55,7 +55,7 @@ class AutonomousCreator:
                 return None
             
             # Step 2: Generate skill metadata
-            name = pattern.suggested_name
+            name = pattern.suggested_name or "auto_skill"
             description = self._generate_description(pattern, actions)
             triggers = pattern.suggested_triggers
             
@@ -189,16 +189,16 @@ class AutonomousCreator:
         """
         # TODO: Implement LLM-based generalization
         # For now, use rule-based approach
-        
+
         commands = pattern.commands
-        
-        # Find common structure
-        normalized = [self._normalize(c) for c in commands]
-        
+        # Guard: pattern may carry no sample commands (e.g. reconstructed from
+        # a saved suggestion) — fall back to the representative command.
+        example = commands[0] if commands else pattern.representative_command
+
         return {
             "name": pattern.suggested_name,
             "triggers": pattern.suggested_triggers,
-            "description": f"Automates: {commands[0]}",
+            "description": f"Automates: {example}",
             "confidence": pattern.confidence,
         }
     

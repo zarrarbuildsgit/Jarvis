@@ -96,7 +96,7 @@ class ActionRuntime:
                 self.trajectory_logger.finish(result)
                 return result
 
-            logger.info("Runtime executing plan %s with %s action(s): %s", plan.id, len(plan.actions), plan.summary)
+            logger.info(f"Runtime executing plan {plan.id} with {len(plan.actions)} action(s): {plan.summary}")
 
             trust_level = int(context.get("trust_level", self.trust_level_getter()))
             approved_action_ids = set(context.get("approved_action_ids", []) or [])
@@ -196,7 +196,7 @@ class ActionRuntime:
             return final_result
             
         except Exception as e:
-            logger.error(f"Trajectory logging error in runtime: {e}")
+            logger.exception(f"Runtime execution failed for command '{command}': {e}")
             # Ensure trajectory is finished even on exception
             try:
                 error_result = RuntimeResult(
@@ -213,8 +213,8 @@ class ActionRuntime:
                     observation={"error": str(e)}
                 )
                 self.trajectory_logger.finish(error_result)
-            except:
-                pass
+            except Exception as log_exc:
+                logger.warning(f"Failed to finalize trajectory after runtime error: {log_exc}")
             raise
 
     def _summarize(self, plan: ActionPlan, results, success: bool) -> str:

@@ -46,7 +46,7 @@ class Trajectory:
     
     id: str = field(default_factory=lambda: f"traj_{uuid4().hex[:12]}")
     command: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now().astimezone().isoformat())
     plan: Optional[Dict[str, Any]] = None
     steps: List[TrajectoryStep] = field(default_factory=list)
     final_result: Optional[Dict[str, Any]] = None
@@ -106,7 +106,7 @@ class TrajectoryLogger:
         
         step = TrajectoryStep(
             step_number=len(self.current_trajectory.steps) + 1,
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.now().astimezone().isoformat(),
             thought=thought,
             action=action,
             observation=observation,
@@ -114,7 +114,7 @@ class TrajectoryLogger:
         )
         self.current_trajectory.steps.append(step)
     
-    def finish(self, runtime_result: RuntimeResult) -> Trajectory:
+    def finish(self, runtime_result: RuntimeResult) -> Optional[Trajectory]:
         """Finish current trajectory and save to disk"""
         if not self.current_trajectory:
             logger.warning("No active trajectory to finish")
@@ -236,38 +236,43 @@ class TrajectoryLogger:
     def get_stats(self) -> Dict[str, Any]:
         """Get trajectory statistics"""
         try:
-            files = list(self.base_dir.glob("traj_*.json"))
+            # Sort by modification time so the sample is the most recent 100,
+            # not an arbitrary glob ordering.
+            files = sorted(
+                self.base_dir.glob("traj_*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
             total = len(files)
-            
+
             if total == 0:
                 return {"total": 0, "success_rate": 0, "avg_steps": 0, "avg_duration_ms": 0}
-            
+
             successes = 0
             total_steps = 0
             total_duration = 0
-            
-            for file_path in files[-100:]:  # Last 100 for performance
+            parsed = 0
+
+            for file_path in files[:100]:  # Most recent 100 for performance
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
                         traj = json.load(f)
-                        if traj.get("success"):
-                            successes += 1
-                        total_steps += len(traj.get("steps", []))
-                        total_duration += traj.get("duration_ms", 0)
-<<<<<<< HEAD
-                except Exception:
-=======
-                except:
->>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
-                    pass
-            
-            sample_size = min(total, 100)
+                    parsed += 1
+                    if traj.get("success"):
+                        successes += 1
+                    total_steps += len(traj.get("steps", []))
+                    total_duration += traj.get("duration_ms", 0)
+                except Exception as e:
+                    logger.warning(f"Skipping unreadable trajectory {file_path}: {e}")
+
+            # Use the number of successfully parsed files as the denominator so
+            # corrupt files don't silently skew the averages.
             return {
                 "total": total,
-                "success_rate": round(successes / sample_size * 100, 1) if sample_size > 0 else 0,
-                "avg_steps": round(total_steps / sample_size, 1) if sample_size > 0 else 0,
-                "avg_duration_ms": round(total_duration / sample_size) if sample_size > 0 else 0,
-                "sample_size": sample_size
+                "success_rate": round(successes / parsed * 100, 1) if parsed > 0 else 0,
+                "avg_steps": round(total_steps / parsed, 1) if parsed > 0 else 0,
+                "avg_duration_ms": round(total_duration / parsed) if parsed > 0 else 0,
+                "sample_size": parsed
             }
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")

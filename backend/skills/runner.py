@@ -43,6 +43,7 @@ class SkillRunner:
         trust_level = int(context.get("trust_level", getattr(self.runtime, "trust_level_getter", lambda: 1)()))
         results = []
         policy_decisions = []
+        required_step_failed = False
 
         for step in skill.steps:
             action = step.action
@@ -72,9 +73,12 @@ class SkillRunner:
             if step.delay_after_seconds > 0:
                 await asyncio.sleep(step.delay_after_seconds)
             if not result.success and not step.optional:
+                required_step_failed = True
                 break
 
-        success = bool(results) and all(r.success for r in results) and len(results) == len(actions)
+        # Optional-step failures are tolerated: the skill fails only if a
+        # required step failed (early break) or not every step was attempted.
+        success = bool(results) and not required_step_failed and len(results) == len(actions)
         skill.touch_run()
         self.manager.save(skill)
         message = f"✅ Skill completed: {skill.name}" if success else f"❌ Skill stopped: {skill.name}"
@@ -82,7 +86,11 @@ class SkillRunner:
         
         # Track performance
         duration_ms = int((time.time() - start_time) * 1000)
-        error_msg = None if success else (results[-1].error if results else "Unknown error")
+        if success:
+            error_msg = None
+        else:
+            failed = next((r for r in results if not r.success), None)
+            error_msg = (failed.error or failed.message or "Unknown error") if failed else "Unknown error"
         self.improver.track_execution(skill.id, success, duration_ms, error_msg)
         
         return final_result

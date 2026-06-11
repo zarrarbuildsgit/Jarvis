@@ -6,8 +6,10 @@ Sprint 3: Skills that learn from failures and improve automatically
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+import os
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -54,10 +56,11 @@ class SkillImprover:
         self,
         skill_manager: Optional[SkillManager] = None,
         trajectory_logger: Optional[TrajectoryLogger] = None,
+        performance_file: str = "data/skills/performance.json",
     ):
         self.skill_manager = skill_manager or SkillManager()
         self.trajectory_logger = trajectory_logger or TrajectoryLogger()
-        self.performance_file = "data/skills/performance.json"
+        self.performance_file = performance_file
     
     def track_execution(
         self,
@@ -221,8 +224,11 @@ class SkillImprover:
         try:
             # Clone the skill
             import copy
+            from uuid import uuid4
             improved = copy.deepcopy(skill)
-            improved.id = f"skill_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # Use a uuid suffix: a second-resolution timestamp id collides when
+            # two improvements are created within the same second.
+            improved.id = f"skill_{uuid4().hex[:12]}"
             improved.name = f"{skill.name}_v2"
             
             # Apply improvements based on failure analysis
@@ -256,53 +262,55 @@ class SkillImprover:
     def get_all_performance(self) -> List[SkillPerformance]:
         """Get performance for all skills"""
         try:
-            import json
-            from pathlib import Path
-            
             perf_file = Path(self.performance_file)
             if not perf_file.exists():
                 return []
-            
+
             data = json.loads(perf_file.read_text(encoding="utf-8"))
-            return [SkillPerformance(**p) for p in data.get("performances", [])]
+            return [self._perf_from_dict(p) for p in data.get("performances", [])]
         except Exception as e:
             logger.error(f"Failed to load all performance: {e}")
             return []
-    
+
+    @staticmethod
+    def _perf_from_dict(p: Dict[str, Any]) -> SkillPerformance:
+        """Build SkillPerformance from a dict, ignoring unknown keys.
+
+        Older/newer versions of the file may contain extra fields; passing
+        them to the dataclass constructor would raise TypeError and silently
+        reset the skill's stats.
+        """
+        known = {f.name for f in fields(SkillPerformance)}
+        return SkillPerformance(**{k: v for k, v in p.items() if k in known})
+
     def _load_performance(self, skill_id: str) -> SkillPerformance:
         """Load performance data for a skill"""
         try:
-            import json
-            from pathlib import Path
-            
             perf_file = Path(self.performance_file)
             if perf_file.exists():
                 data = json.loads(perf_file.read_text(encoding="utf-8"))
                 for p in data.get("performances", []):
                     if p.get("skill_id") == skill_id:
-                        return SkillPerformance(**p)
-            
+                        return self._perf_from_dict(p)
+
             return SkillPerformance(skill_id=skill_id)
         except Exception as e:
             logger.error(f"Failed to load performance: {e}")
             return SkillPerformance(skill_id=skill_id)
-    
+
     def _save_performance(self, perf: SkillPerformance):
         """Save performance data"""
         try:
-            import json
-            from pathlib import Path
-            
             perf_file = Path(self.performance_file)
             perf_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Load existing
             if perf_file.exists():
                 data = json.loads(perf_file.read_text(encoding="utf-8"))
                 performances = data.get("performances", [])
             else:
                 performances = []
-            
+
             # Update or add
             updated = False
             for i, p in enumerate(performances):
@@ -310,17 +318,20 @@ class SkillImprover:
                     performances[i] = perf.to_dict()
                     updated = True
                     break
-            
+
             if not updated:
                 performances.append(perf.to_dict())
-            
-            # Save
+
+            # Save atomically (write temp file, then replace) so a concurrent
+            # reader never sees a partially written JSON file.
             data = {
                 "updated_at": self._now(),
                 "performances": performances
             }
-            perf_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            
+            tmp_path = perf_file.with_name(perf_file.name + ".tmp")
+            tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            os.replace(tmp_path, perf_file)
+
         except Exception as e:
             logger.error(f"Failed to save performance: {e}")
     

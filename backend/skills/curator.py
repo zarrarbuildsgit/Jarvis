@@ -9,9 +9,10 @@ When 3+ similar commands are found, proposes a new skill.
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -59,14 +60,28 @@ class SkillCurator:
         min_occurrences: int = 3,
         lookback_days: int = 7,
         similarity_threshold: float = 0.7,
+        data_dir: str = "data/skills",
     ):
         self.trajectory_logger = trajectory_logger or TrajectoryLogger()
         self.task_history = task_history or TaskHistory()
         self.min_occurrences = min_occurrences
         self.lookback_days = lookback_days
         self.similarity_threshold = similarity_threshold
-        self.suggestions_file = Path("data/skills/suggestions.json")
+        self.suggestions_file = Path(data_dir) / "suggestions.json"
         self.suggestions_file.parent.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _parse_timestamp(value: str) -> datetime:
+        """Parse an ISO timestamp into an aware UTC datetime.
+
+        Trajectories on disk contain a mix of naive local timestamps and
+        timezone-aware ones (with offset or trailing 'Z'). Naive values are
+        assumed to be local time so comparisons never mix naive and aware.
+        """
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.astimezone()  # interpret naive as local time
+        return dt.astimezone(timezone.utc)
     
     def scan_for_patterns(self) -> List[CommandPattern]:
         """Scan recent trajectories for repeated command patterns"""
@@ -78,21 +93,17 @@ class SkillCurator:
                 return []
             
             # Filter by date and success
-            cutoff = datetime.now() - timedelta(days=self.lookback_days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=self.lookback_days)
             recent_successful = []
-            
+
             for traj in trajectories:
                 try:
-                    traj_time = datetime.fromisoformat(traj["timestamp"].replace("Z", "+00:00"))
-                    if traj_time.replace(tzinfo=None) < cutoff:
+                    traj_time = self._parse_timestamp(traj["timestamp"])
+                    if traj_time < cutoff:
                         continue
                     if traj.get("success"):
                         recent_successful.append(traj)
-<<<<<<< HEAD
                 except Exception:
-=======
-                except:
->>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
                     continue
             
             # Group by similarity
@@ -261,22 +272,14 @@ class SkillCurator:
         
         # Success rate
         successes = sum(1 for t in trajectories if t.get("success"))
-<<<<<<< HEAD
         success_rate = successes / len(trajectories) if trajectories else 0
-=======
-        success_rate = successes / len(trajectories)
->>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
         
         # Recency score (more recent = higher)
         try:
-            last_time = max(datetime.fromisoformat(t.get("timestamp", "").replace("Z", "+00:00")) for t in trajectories)
-            days_ago = (datetime.now(last_time.tzinfo) - last_time).days
-            recency_score = max(0, 1.0 - days_ago / self.lookback_days)
-<<<<<<< HEAD
+            last_time = max(self._parse_timestamp(t.get("timestamp", "")) for t in trajectories)
+            days_ago = (datetime.now(timezone.utc) - last_time).days
+            recency_score = max(0.0, min(1.0, 1.0 - days_ago / self.lookback_days))
         except Exception:
-=======
-        except:
->>>>>>> fb2fee0a2abafeaaed4de32fea6b293e1b3f236b
             recency_score = 0.5
         
         # Frequency score
@@ -308,34 +311,41 @@ class SkillCurator:
         try:
             suggestions = [p.to_dict() for p in patterns]
             data = {
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "count": len(suggestions),
                 "suggestions": suggestions
             }
-            self.suggestions_file.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False),
-                encoding="utf-8"
-            )
+            self._write_suggestions(data)
             logger.info(f"Saved {len(suggestions)} skill suggestions")
         except Exception as e:
             logger.error(f"Failed to save suggestions: {e}")
-    
+
     def dismiss_suggestion(self, representative_command: str):
         """Dismiss a suggestion (user doesn't want it)"""
         try:
             suggestions = self.get_suggestions()
             filtered = [
-                s for s in suggestions 
+                s for s in suggestions
                 if s.get("representative_command") != representative_command
             ]
             data = {
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "count": len(filtered),
                 "suggestions": filtered
             }
-            self.suggestions_file.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False),
-                encoding="utf-8"
-            )
+            self._write_suggestions(data)
         except Exception as e:
             logger.error(f"Failed to dismiss suggestion: {e}")
+
+    def _write_suggestions(self, data: Dict[str, Any]) -> None:
+        """Atomically write the suggestions file (write temp, then replace).
+
+        Prevents readers from seeing a partially written/corrupt JSON file.
+        """
+        self.suggestions_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = self.suggestions_file.with_name(self.suggestions_file.name + ".tmp")
+        tmp_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+        os.replace(tmp_path, self.suggestions_file)
